@@ -9,9 +9,9 @@ import model_util
 
 
 class RSU:
-    def __init__(self, gpu_ratio=0.5, max_storage=1200, download_rate=None, rsu_rate=None):
+    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None):
         # transmission rate
-        self.seq_num = [[0 for _ in range(model_util.Sub_model_num[i])]for i in range(len(model_util.Model_name))]
+        self.seq_num = [[0 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))]
         if download_rate is None:
             self.download_rate = random.uniform(450, 550)  # Mbps
         else:
@@ -21,8 +21,8 @@ class RSU:
         else:
             self.rsu_rate = rsu_rate
         # computation
-        self.gpu_idx = -1   # -1, no-gpu, 0, 1: gpu_type_idx
-        if random.uniform(0, 1) < gpu_ratio:  #
+        self.gpu_idx = -1  # -1, no-gpu, 0, 1: gpu_type_idx
+        if random.uniform(0, 1) < device_ration:  #
             self.gpu_idx = get_device_id(random.randint(0, 1), is_gpu=True)
             self.has_gpu = True
             self.has_cpu = False
@@ -33,47 +33,50 @@ class RSU:
         self.trans_cpu_gpu = 16 * 1024  # Gbps
         # storage
         self.storage_capacity = random.uniform(300, max_storage)  # to do ...
-        self.gpu_load_rate = 1000
         # task
         self.task_list = []
         self.__caching_model_list = set()  # data: get_model_name(model_idx, sub_model_idx)
-        self.__caching_model_list_gpu = set()
-        self.queue_latency = 0
         self.task_size = 0
 
     def add_task(self, task_size, exec_latency):  # 计算add一个task之后的queue_latency，以及rsu存储的task size
-        self.queue_latency += exec_latency
+        # self.queue_latency += exec_latency
         self.task_size += task_size
 
     def satisfy_caching_constraint(self, task_size=0):
         return self.storage_capacity > self.cal_caching_size() + task_size
 
-    def get_surplus_size(self):  # 获得rsu的剩余存储空间
-        """
-        get the size for task execution
-        :return:
-        """
-        return self.storage_capacity - self.cal_caching_size(is_gpu=False) - self.cal_caching_size(is_gpu=True)
+    def get_rsu_cached_model_size(self, is_share=True):  # 获取已经缓存的模型大小
+        model_size = 0
+        model_layers = set()
+        for model_name in self.__caching_model_list:
+            model_idx, sub_model_idx = model_util.get_model_info(model_name)
+            model = model_util.get_model(model_idx)
+            sub_model_layers = set(model.require_sub_model[sub_model_idx])
+            if is_share:
+                model_layers.add(sub_model_layers)
+            else:
+                for sub_model_layer in sub_model_layers:
+                    model_size += model.sub_model_size[sub_model_layer]
+        if is_share:
+            for sub_model_layer in model_layers:
+                model_size += model.sub_model_size[sub_model_layer]
+        return model_size
 
-    def cal_caching_size(self):
-        """
-        :return: the caching size of inference in CPU or GPU.
-        """
-        cached_model = self.get_cached_model()
-        return self.__cal_cache_size(cached_model)
+    def add_model(self, model_idx, sub_model_idx):  # 为rsu添加模型
+        model_name = model_util.get_model_name(model_idx, sub_model_idx)
+        self.__caching_model_list.add(model_name)
+
+    def remove_model(self, model_idx, sub_model_idx):  # 移除模型
+        model_name = model_util.get_model_name(model_idx, sub_model_idx)
+        self.__caching_model_list.remove(model_name)
+
+    def get_surplus_size(self):  # 获得rsu的剩余存储空间
+        return self.storage_capacity - self.get_rsu_cached_model_size() - self.task_size
 
     def get_cached_model(self) -> set:
-        """
-        get the cached model in CPU (default) or GPU
-        :param is_gpu:
-        :return:
-        """
-        if self.has_gpu:
-            return self.__caching_model_list_gpu.copy()
-        else:
-            return self.__caching_model_list.copy()
+        return self.__caching_model_list
 
-    def __cal_cache_size(self, cache_models: set):  # 计算cache_models的size
+    def get_caching_models_size(self, cache_models: set):  # 计算需要缓存的模型大小
         models = {}
         for model in cache_models:
             model_idx, sub_model_idx = model_util.get_model_info(model)
@@ -97,7 +100,7 @@ class RSU:
         :return:
         """
         pre_model_size = self.cal_caching_size()  # 获得已缓存模型的size
-        models = self.get_cached_model() # 获取已缓存模型
+        models = self.get_cached_model()  # 获取已缓存模型
         for sub_model_idx in sub_models:
             model_name = model_util.get_model_name(model_idx, sub_model_idx)
             models.add(model_name)
@@ -155,19 +158,6 @@ class RSU:
         for sub_model_idx in sub_models:
             self.remove_model(model_idx, sub_model_idx, is_gpu=is_gpu)
 
-    def remove_model(self, model_idx, sub_model_idx):
-        """
-        remove model_idx-sub_model_idx in RSU
-        :param model_idx:
-        :param sub_model_idx:
-        :return:
-        """
-        model_name = model_util.get_model_name(model_idx, sub_model_idx)
-        if self.has_gpu:
-            self.__caching_model_list_gpu.remove(model_name)
-        else:
-            self.__caching_model_list.remove(model_name)
-
     def has_all_model(self, sub_models) -> bool:
         """
         :return the result whether RSU caches all sub_models....
@@ -212,18 +202,12 @@ class RSU:
         return sub_model_idxs
 
     def clear_cached_model(self):
-        """
-        clear all cached model in RSU
-        """
         self.__caching_model_list.clear()
-        self.__caching_model_list_gpu.clear()
 
-    def rebuild_model_list(self, cpu_list, gpu_list):
-        self.__caching_model_list = cpu_list
-        self.__caching_model_list_gpu = gpu_list
+    def rebuild_model_list(self, model_list):
+        self.__caching_model_list = model_list
 
-
-def get_device_id(device_id, is_gpu=False, gpu_num=2): # 没理解这个函数的作用
+def get_device_id(device_id, is_gpu=False, gpu_num=2):
     if is_gpu:
         return device_id
     else:
