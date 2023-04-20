@@ -51,7 +51,7 @@ class RSU:
         for model_name in self.__caching_model_list:
             model_idx, sub_model_idx = model_util.get_model_info(model_name)
             model = model_util.get_model(model_idx)
-            sub_model_layers = set(model.require_sub_model[sub_model_idx])
+            sub_model_layers = set(model.require_sub_model_all[sub_model_idx])
             if is_share:
                 model_layers.add(sub_model_layers)
             else:
@@ -59,7 +59,7 @@ class RSU:
                     model_size += model.sub_model_size[sub_model_layer]
         if is_share:
             for sub_model_layer in model_layers:
-                model_size += model.sub_model_size[sub_model_layer]
+                model_size += model_util.Sub_Model_Structure_Size[sub_model_layer]
         return model_size
 
     def add_model(self, model_idx, sub_model_idx):  # 为rsu添加模型
@@ -99,12 +99,12 @@ class RSU:
         :param is_gpu:
         :return:
         """
-        pre_model_size = self.cal_caching_size()  # 获得已缓存模型的size
+        pre_model_size = self.get_rsu_cached_model_size()  # 获得已缓存模型的size
         models = self.get_cached_model()  # 获取已缓存模型
         for sub_model_idx in sub_models:
             model_name = model_util.get_model_name(model_idx, sub_model_idx)
             models.add(model_name)
-        after_model_size = self.__cal_cache_size(models)
+        after_model_size = self.get_caching_models_size(models)
         return after_model_size - pre_model_size
 
     def add_all_sub_model(self, model_idx, sub_models: List[int], is_gpu=False) -> List[int]:
