@@ -67,7 +67,6 @@ def get_request_type(sub_model_num, max_k=4):  # 随机生成任务需要用到�
     if k > max_k:
         k = max_k
     res = random.sample(order, k)
-    res.sort()
     return res
 
 
@@ -82,7 +81,7 @@ def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> Li
         task_num = min([max_sub_task_num, model_util.Sub_model_num[info["model_idx"]]])
         info["sub_model"] = get_request_type(task_num)
         info["latency"] = random.uniform(max_latency * 0.8, max_latency)
-        info["sub_task"] = [i for i in range(len(info["latency"]))]
+        info["sub_task"] = [i for i in range(len(info["sub_model"]))]
         info["model_structure"] = list(model_util.get_model(info["model_idx"]).get_sub_module_by_model_idx_all(info["sub_model"]))
         task_lists.append(info)
     return task_lists
