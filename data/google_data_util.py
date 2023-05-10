@@ -66,24 +66,30 @@ def get_request_type(sub_model_num, max_k=4):  # 随机生成任务需要用到�
     k = random.randint(1, sub_model_num)
     if k > max_k:
         k = max_k
-    res = random.sample(order, k)
+    res = order[:k]
     return res
 
 
 def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> List[dict]:  # 任务里面有哪些属性
     # df = pd.read_csv(filename)
-    task_lists = []
+    task_lists = [[] for _ in range(filename)]
     for job_idx in range(filename):  # 遍历每一行数据
-        info = {}
-        info["job_id"] = job_idx
-        info["rsu_id"] = random.randint(0, rsu_num - 1)
-        info["model_idx"] = random.randint(0, len(model_util.Model_name) - 1)
-        task_num = min([max_sub_task_num, model_util.Sub_model_num[info["model_idx"]]])
-        info["sub_model"] = get_request_type(task_num)
-        info["latency"] = random.uniform(max_latency * 0.8, max_latency)
-        info["sub_task"] = [i for i in range(len(info["sub_model"]))]
-        info["model_structure"] = list(model_util.get_model(info["model_idx"]).get_sub_module_by_model_idx_all(info["sub_model"]))
-        task_lists.append(info)
+        model_idx = random.randint(0, len(model_util.Model_name) - 1)
+        task_num = model_util.Sub_model_num[model_idx]
+        sub_task_list = get_request_type(task_num)
+        for sub_task in sub_task_list:
+            info = {}
+            info["job_id"] = job_idx
+            info["rsu_id"] = random.randint(0, rsu_num - 1)
+            info["model_idx"] = model_idx
+            info["sub_model_idx"] = sub_task
+            info["latency"] = random.uniform(max_latency * 0.8, max_latency)
+            info["seq_num"] = random.randint(0, 9)
+            model_structure = []
+            model_structure = (model_util.get_model(info["model_idx"]).get_model_structure(sub_task))
+            info["model_structure"] = model_structure
+            task_lists[job_idx].append(info)
+    print(task_lists[0])
     return task_lists
 
 
