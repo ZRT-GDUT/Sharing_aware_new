@@ -26,44 +26,41 @@ def print_date():
 
 
 def generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage):
-    return [device.RSU(device_ration, max_storage, download_rate, rsu_rate) for i in range(rsu_num)]
+    return [device.RSU(rsu_num, device_ration, max_storage, download_rate, rsu_rate) for i in range(rsu_num)]
 
 
-def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=200):
+def init_model_deploy(model_ration, rsu_num, RSUs):
+    model_list_all = model_util.model_list_all
+    for model_num in range(model_ration):
+        flag = 0
+        while flag == 0:
+            rand_rsu_id = random.randint(0, rsu_num - 1)
+            rand_model_name_idx = random.randint(0, len(model_list_all) - 1)
+            rand_model_name = model_list_all[rand_model_name_idx]
+            rand_rsu_model_list = RSUs[rand_rsu_id].get_cached_model()
+            rand_model_idx, rand_sub_model_idx = model_util.get_model_info(rand_model_name)
+            if rand_model_name not in rand_rsu_model_list:
+                RSUs[rand_rsu_id].add_model(rand_model_idx, rand_sub_model_idx)
+                caching_size = RSUs[rand_rsu_id].get_rsu_cached_model_size(is_share=True)
+                if caching_size <= RSUs[rand_rsu_id].storage_capacity:
+                    rand_model_id, rand_sub_model_id = model_util.get_model_info(rand_model_name)
+                    RSUs[rand_rsu_id].add_model(rand_model_id, rand_sub_model_id)
+                    model_list_all.remove(rand_model_name)
+                    flag = 1
+                else:
+                    RSUs[rand_rsu_id].remove_model(rand_model_idx, rand_sub_model_idx)
+
+
+def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=200, model_ration=6):
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
-    flag = 0
-    while flag == 0:
-        init_model_deploy = random.uniform(0, 1)
-        rand_rsu_id = random.randint(0, rsu_num - 1)
-        rand_model_index = random.randint(0, len(model_util.Model_name) - 1)
-        rand_sub_model_index = random.randint(0, model_util.Sub_model_num[rand_model_index] - 1)
-        model = model_util.get_model(rand_model_index)
-        size = 0
-        if init_model_deploy <= 1 / 2:
-            # 部署大模型
-            for sub_model_idx in range(model_util.Sub_model_num[rand_model_index]):
-                for model_structure_idx in model.require_sub_model_all[sub_model_idx]:
-                    size = size + model_util.Sub_Model_Structure_Size[model_structure_idx]
-            if RSUs[rand_rsu_id].storage_capacity > size:
-                flag = 1
-                for sub_model_idx in range(model_util.Sub_model_num[rand_model_index]):
-                    RSUs[rand_rsu_id].add_model(rand_model_index, sub_model_idx)  # 默认部署在cpu
-        else:
-            # 部署小模型
-            for model_structure_idx in model.require_sub_model_all[rand_sub_model_index]:
-                size = size + model_util.Sub_Model_Structure_Size[model_structure_idx]
-            if RSUs[rand_rsu_id].storage_capacity > size:
-                RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index)
-                flag = 1
-
+    init_model_deploy(model_ration, rsu_num, RSUs)
     Algo_new = Algo(RSUs)
     task_list = google_data_util.process_task(rsu_num)
-    print(RSUs[0].latency_list[1][0][2][5])
     Algo_new.iarr(task_list)
 
 
 def rsu_num_change():
-    for rsu_num in range(10, 31, 5):
+    for rsu_num in range(5, 31, 5):
         run_algo(rsu_num=rsu_num)
 
 

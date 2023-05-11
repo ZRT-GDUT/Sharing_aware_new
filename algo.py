@@ -36,24 +36,24 @@ class Algo:
                 T = T_max
         return obj
 
-    def find_no_decide_variable(self):
+    def find_decide_variable(self):
+        model_list_all = {}
+        model_structure_list = set()
         for rsu_idx in range(self.rsu_num):
             models = self.RSUs[rsu_idx].get_cached_model()
             if len(models) == 0:
                 continue
             else:
-                rand_rsu_idx = rsu_idx
-                rand_sub_model_idx = set()
-                rand_model_structure_idx = set()
-                for model in models:
-                    model_idx, sub_model_idx = model_util.get_model_info(model)
-                    model_object = model_util.get_model(model_idx)
-                    rand_model_idx = model_idx
-                    rand_sub_model_idx.add(sub_model_idx)
-                    for model_structure_idx in model_object.require_sub_model_all[sub_model_idx]:
-                        rand_model_structure_idx.add(model_structure_idx)
-        print(rand_rsu_idx, rand_model_idx, sorted(rand_sub_model_idx), sorted(rand_model_structure_idx))
-        return rand_rsu_idx, rand_model_idx, sorted(rand_sub_model_idx), sorted(rand_model_structure_idx)
+                for model_name in models:
+                    model_idx, sub_model_idx = model_util.get_model_info(model_name)
+                    model = model_util.get_model(model_idx)
+                    for structure_idx in model.require_sub_model_all[sub_model_idx]:
+                        model_structure_list.add(structure_idx)
+                    if model_list_all.get(model_idx, 0) == 0:
+                        model_list_all[model_idx] = {sub_model_idx}
+                    else:
+                        model_list_all[model_idx].add(sub_model_idx)
+        return model_list_all, model_structure_list
 
     def generate_jobid_model_idx(self, task_list: List[dict]):
         model_idx_jobid_list = []
@@ -78,41 +78,42 @@ class Algo:
             task_num = len(task_list[i]) + task_num
         return task_num
 
-    def lin_pro(self, model_list, model_structure_list, task_list, model_idx_jobid_list, T_max, x_structure_model,
-                x_task_structure):
-        rand_rsu_id, rand_model_idx, rand_sub_model_idx, rand_model_structure_idx = self.find_no_decide_variable()
-        print(rand_model_idx, rand_sub_model_idx)
-        print(model_list)
-        for model_structure_idx in rand_model_structure_idx:
-            model_structure_list.add(model_structure_idx)
-        if model_list.get(rand_model_idx, 0) == 0:
-            model_list[rand_model_idx] = {rand_sub_model for rand_sub_model in rand_sub_model_idx}
-        else:
-            for sub_model in rand_sub_model_idx:
-                model_list[rand_model_idx].add(sub_model)
-        print(model_list)
-        model_list_keys = list(model_list.keys())
-        model_list_keys.sort()
-        max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)  # 定义最大化吞吐率问题
+    def get_model_list_merging(self, model_list, model_list_init):
+        for rand_model_idx in model_list_init.keys():
+            if model_list.get(rand_model_idx, 0) == 0:
+                model_list[rand_model_idx] = model_list_init[rand_model_idx]
+            else:
+                for rand_sub_model in model_list_init[rand_model_idx]:
+                    model_list[rand_model_idx].add(rand_sub_model)
+
+    def get_rsu_model_list(self):
+        rsu_model_list = {}
+        rsu_structure_list = {}
+        for rsu_idx in range(self.rsu_num):
+            rsu_model_list[rsu_idx] = self.RSUs[rsu_idx].get_cached_model()
+            for model_name in self.RSUs[rsu_idx].get_cached_model():
+                model_idx, sub_model_idx = model_util.get_model_info(model_name)
+                model = model_util.get_model(model_idx)
+                for structure_idx in model.require_sub_model_all[sub_model_idx]:
+                    if rsu_structure_list.get(rsu_idx, 0) == 0:
+                        rsu_structure_list[rsu_idx] = {structure_idx}
+                    else:
+                        rsu_structure_list[rsu_idx].add(structure_idx)
+        print(rsu_model_list, rsu_structure_list)
+        return rsu_model_list, rsu_structure_list
+
+    def lin_var(self, model_list, model_structure_list, rsu_model_list, rsu_structure_list,
+                task_list, model_list_keys):
         x_i_e = {(i, m, s): pl.LpVariable('x_i_e_{0}_{1}_{2}'.format(i, m, s), lowBound=0, upBound=1,
                                           cat='Continuous')
                  for i in range(self.rsu_num)
                  for m in model_list_keys
-                 for s in range(len(model_list[m]))}
-        for sub_model_idx in rand_sub_model_idx:
-            x_i_e[rand_rsu_id, rand_model_idx, sub_model_idx].lowBound = 1
-            x_i_e[rand_rsu_id, rand_model_idx, sub_model_idx].upBound = 1
-        # for model_idx in range(len(model_util.Model_name)):
-        #     for sub_model_idx in range(model_util.Sub_model_num[model_idx]):
-        #         if model_list.get(model_idx, 0) != 0:
-        #             if sub_model_idx not in model_list[model_idx]:
-        #                 for rsu_idx in range(self.rsu_num):
-        #                     x_i_e[rsu_idx, model_idx, sub_model_idx].value = 0
-        #                     # x_i_e[rsu_idx, model_idx, sub_model_idx].upBound = 0
-        #         else:
-        #             for rsu_idx in range(self.rsu_num):
-        #                 x_i_e[rsu_idx, model_idx, sub_model_idx].value = 0
-        #                 # x_i_e[rsu_idx, model_idx, sub_model_idx].upBound = 0
+                 for s in model_list[m]}
+        for rsu_idx in rsu_model_list.keys():
+            for rsu_model in rsu_model_list[rsu_idx]:
+                model_idx, sub_model_idx = model_util.get_model_info(rsu_model)
+                x_i_e[rsu_idx, model_idx, sub_model_idx].lowBound = 1
+                x_i_e[rsu_idx, model_idx, sub_model_idx].upBound = 1
 
         x_i_l = {(i, l): pl.LpVariable('x_i_l_{0}_{1}'.format(i, l),
                                        lowBound=0, upBound=1, cat='Continuous')
@@ -121,14 +122,10 @@ class Algo:
         for model_structure_idx in model_structure_list:  # 默认云上部署了所有的model
             x_i_l[self.rsu_num, model_structure_idx].lowBound = 1
             x_i_l[self.rsu_num, model_structure_idx].upBound = 1
-        for model_structure_idx in rand_model_structure_idx:
-            x_i_l[rand_rsu_id, model_structure_idx].lowBound = 1
-            x_i_l[rand_rsu_id, model_structure_idx].upBound = 1
-        # for model_structure_idx in model_structure_list:
-        #     if model_structure_idx not in model_structure_list:
-        #         for rsu_idx in range(self.rsu_num):
-        #             x_i_l[rsu_idx, model_structure_idx].lowBound = 0
-        #             x_i_l[rsu_idx, model_structure_idx].upBound = 0
+        for rsu_idx in rsu_structure_list.keys():
+            for model_structure_idx in rsu_structure_list[rsu_idx]:
+                x_i_l[self.rsu_num, model_structure_idx].lowBound = 1
+                x_i_l[self.rsu_num, model_structure_idx].upBound = 1
 
         x_i_i_l = {(i, j, l): pl.LpVariable('x_i_i_l_{0}_{1}_{2}'.format(i, j, l), lowBound=0, upBound=1,
                                             cat='Continuous')
@@ -136,23 +133,14 @@ class Algo:
                    for j in range(self.rsu_num)
                    for l in model_structure_list}
         for other_rsu_idx in range(self.rsu_num + 1):
-            for model_structure_idx in rand_model_structure_idx:
-                if other_rsu_idx != rand_rsu_id:
-                    x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].lowBound = 0
-                    x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].upBound = 0
-                else:
-                    x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].lowBound = 1
-                    x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].upBound = 1
-
-        # for other_rsu_idx in range(self.rsu_num+1):
-        #     for rsu_idx in range(self.rsu_num):
-        #         for model_structure_idx in range(model_structure_list):
-        #             if other_rsu_idx == rand_rsu_id and model_structure_idx in rand_model_structure_idx and rsu_idx == rand_rsu_id:
-        #                 x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].lowBound = 1
-        #                 x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].upBound = 1
-        #             elif model_structure_idx not in model_structure_list:
-        #                 x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 0
-        #                 x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 0
+            for rsu_idx in rsu_structure_list.keys():
+                for model_structure_idx in rsu_structure_list[rsu_idx]:
+                    if other_rsu_idx != rsu_idx:
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 0
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 0
+                    else:
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 1
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 1
 
         y_i_jk = {
             (i, j, m): pl.LpVariable('y_i_jk_{0}_{1}_{2}'.format(i, j, m), lowBound=0, upBound=1, cat='Continuous')
@@ -167,16 +155,23 @@ class Algo:
                     for t in range(self.get_all_task_num())
                     for m in range(len(task_list[t]))
                     for l in model_structure_list}
-        # for rsu_idx_lp in range(self.rsu_num + 1):
-        #     for other_rsu_idx_lp in range(self.rsu_num):
-        #         for job_id_lp in range(self.get_all_task_num()):
-        #             for sub_task in range(len(task_list[job_id_lp])):
-        #                 for model_structure_idx_lp in model_structure_list:
-        #                     if model_structure_idx_lp not in model_structure_list:
-        #                         z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].value = 0
-        #                         # z_i_jk_l[
-        #                         #     rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].upBound = 0
+        return x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l
 
+    def lin_pro(self, model_list, model_structure_list, task_list, model_idx_jobid_list, T_max, x_structure_model,
+                x_task_structure):
+        model_list_init, model_structure_list_init = self.find_decide_variable()
+        model_structure_list = model_structure_list | model_structure_list_init
+        self.get_model_list_merging(model_list, model_list_init)
+        model_list_keys = list(model_list.keys())
+        model_list_keys.sort()
+        print(model_list, model_structure_list)
+        rsu_model_list, rsu_structure_list = self.get_rsu_model_list()
+        ######
+        # LP #
+        ######
+        max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)          # 定义最大化吞吐率问题
+        x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l = self.lin_var(model_list, model_structure_list,
+                                                               rsu_model_list, rsu_structure_list, task_list, model_list_keys)
         max_system_throughput += (pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task]
                                              for sub_task in range(len(task_list[job_id_lp])))
                                             for job_id_lp in range(self.get_all_task_num()))
@@ -216,9 +211,9 @@ class Algo:
                                                for rsu_idx_lp in range(self.rsu_num))
                                               for other_rsu_idx_lp in range(self.rsu_num))
                                           + pl.lpSum((((((z_i_jk_l[
-                                                             rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] *
-                                                         x_task_structure[job_id_lp][sub_task][model_structure_idx_lp] *
-                                                         model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
+                                                              rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] *
+                                                          x_task_structure[job_id_lp][sub_task][model_structure_idx_lp]
+                                                          * model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
                                                          / (self.RSUs[
                                                                 rsu_idx_lp].rsu_rate if rsu_idx_lp != self.rsu_num else
                                                             self.RSUs[other_rsu_idx_lp].download_rate))
@@ -233,20 +228,22 @@ class Algo:
                 max_system_throughput += (pl.lpSum(
                     (((model_util.get_model(model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
                         other_rsu_idx_lp, job_id_lp, sub_task] / self.RSUs[rsu_idx_lp].rsu_rate)
-                      if (rsu_idx_lp != other_rsu_idx_lp and task_list[job_id_lp][sub_task]["rsu_id"] == rsu_idx_lp) else 0)
+                      if (rsu_idx_lp != other_rsu_idx_lp and task_list[job_id_lp][sub_task][
+                        "rsu_id"] == rsu_idx_lp) else 0)
                      for sub_task in range(len(task_list[job_id_lp])))
                     for job_id_lp in range(self.get_all_task_num()))
                                           + pl.lpSum((((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
-                                                       model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
+                                                        model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
                                                        (self.RSUs[
-                                                           rsu_idx_lp].rsu_rate)) if rsu_idx_lp != other_rsu_idx_lp else 0)
+                                                            rsu_idx_lp].rsu_rate)) if rsu_idx_lp != other_rsu_idx_lp else 0)
                                                      for model_structure_idx_lp in
                                                      model_structure_list) <= T_max)  # Constraint(34)
         for rsu_idx_lp in range(self.rsu_num):
             max_system_throughput += (pl.lpSum(
                 ((x_i_i_l[self.rsu_num, rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[
                     model_structure_idx_lp])
-                 / self.RSUs[rsu_idx_lp].download_rate) for model_structure_idx_lp in model_structure_list) <= T_max)  # Constraint(35)
+                 / self.RSUs[rsu_idx_lp].download_rate) for model_structure_idx_lp in
+                model_structure_list) <= T_max)  # Constraint(35)
 
         for rsu_idx_lp in range(self.rsu_num):
             max_system_throughput += (pl.lpSum(
@@ -260,14 +257,13 @@ class Algo:
         for job_id_lp in range(self.get_all_task_num()):
             for sub_task in range(len(task_list[job_id_lp])):
                 max_system_throughput += (pl.lpSum(
-                    y_i_jk[rsu_idx_lp, job_id_lp, sub_task] for rsu_idx_lp in range(self.rsu_num)) <= 1)  # Constraint(37)
+                    y_i_jk[rsu_idx_lp, job_id_lp, sub_task] for rsu_idx_lp in
+                    range(self.rsu_num)) <= 1)  # Constraint(37)
 
         for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum(((x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] *
+            max_system_throughput += (pl.lpSum(((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
                                                  model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
-                                                for model_structure_idx_lp in model_structure_list)
-                                               for other_rsu_idx_lp in range(self.rsu_num+1)
-                                               )
+                                                for model_structure_idx_lp in model_structure_list))
                                       + pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
                         model_idx_jobid_list[job_id_lp]).single_task_size)
                                                   for sub_task in range(len(task_list[job_id_lp])))
@@ -344,8 +340,7 @@ class Algo:
                     model_list[model_idx].add(sub_model_idx)
         return model_list, model_structure_list
 
-    def arr(self, T_max, task_list):
-        model_idx_jobid_list = self.generate_jobid_model_idx(task_list)
+    def generate_task_to_structure(self, task_list):
         x_task_structure = [[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]
                              for _ in range(len(task_list[i]))] for i in range(self.get_all_task_num())]
         for task in task_list:
@@ -355,6 +350,9 @@ class Algo:
                 sub_task_id = sub_task["sub_model_idx"]
                 for task_structure_idx in task_structure:
                     x_task_structure[task_job_id][sub_task_id][task_structure_idx] = 1
+        return x_task_structure
+
+    def generate_structure_to_model(self):
         x_structure_model = [
             [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(model_util.Sub_model_num[i])]
             for i in range(len(model_util.Model_name))]  # 用来定义每个model需要哪些structure
@@ -363,6 +361,12 @@ class Algo:
                 model_structure = model_util.get_model(model_idx).require_sub_model_all[sub_model_idx]
                 for model_structure_idx in model_structure:
                     x_structure_model[model_idx][sub_model_idx][model_structure_idx] = 1
+        return x_structure_model
+
+    def arr(self, T_max, task_list):
+        model_idx_jobid_list = self.generate_jobid_model_idx(task_list)
+        x_task_structure = self.generate_task_to_structure(task_list)
+        x_structure_model = self.generate_structure_to_model()
         model_list, model_structure_list = self.get_variable_range(task_list)
         self.lin_pro(model_list, model_structure_list, task_list, model_idx_jobid_list, T_max, x_structure_model,
                      x_task_structure)
@@ -409,5 +413,5 @@ class Algo:
                     total_time = download_time + exec_time + total_time
             total_time_list.append(total_time)
         print("total_time_list:", total_time_list)
-        T_max = sum(total_time_list)
+        T_max = max(total_time_list)
         return T_max

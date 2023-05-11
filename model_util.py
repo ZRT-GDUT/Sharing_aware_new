@@ -11,7 +11,8 @@ Sub_Model_Structure = [5, 5, 6]
 Sub_Model_Structure_Size = [179.2257156, 49.20232773, 0.00195694, 49.20232773, 206.0307236,
                             161.1276855, 47.32210541, 2.297855377, 2.427921295, 3.480670929,
                             1.591918945, 1.591918945, 0.071289063, 0.071289063, 0.143920898, 0.071289063]
-
+model_list_all = ["0-0", "0-1", "0-2", "0-3", "1-0", "1-1", "1-2", "2-0", "2-1", "2-2", "2-3"]
+model_structure_list_all = [i for i in range(len(Sub_Model_Structure_Size))]
 
 def get_model_name(model_idx, sub_model_idx):
     return "{}-{}".format(model_idx, sub_model_idx)

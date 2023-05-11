@@ -9,13 +9,13 @@ import model_util
 
 
 class RSU:
-    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None):
+    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=10):
         # transmission rate
         self.seq_num = [[1 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))]
         if download_rate is None:
             self.download_rate = random.uniform(450, 550)  # Mbps
         else:
-            self.download_rate = download_rate
+            self.download_rate = (download_rate / rsu_num)
         if rsu_rate is None:
             self.rsu_rate = random.uniform(80, 120)  # Mbps
         else:
@@ -177,7 +177,7 @@ class RSU:
             model = model_util.get_model(model_idx)
             sub_model_layers = set(model.require_sub_model_all[sub_model_idx])
             if is_share:
-                model_layers.add(sub_model_layers)
+                model_layers = model_layers | sub_model_layers
             else:
                 for sub_model_layer in sub_model_layers:
                     model_size += model.sub_model_size[sub_model_layer]
