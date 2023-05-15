@@ -1,3 +1,4 @@
+import random
 from typing import List
 
 import device
@@ -60,17 +61,6 @@ class Algo:
         for task in task_list:
             model_idx_jobid_list.append(task[0]["model_idx"])
         return model_idx_jobid_list
-
-    def cal_task_exectime(self, rsu_idx, model_idx, sub_model_idx):
-        task_seq_num = self.RSUs[rsu_idx].seq_num[model_idx][sub_model_idx]
-        device_idx = self.RSUs[rsu_idx].device_idx
-        model = model_util.get_model(model_idx)
-        if task_seq_num >= len(model.latency[sub_model_idx][device_idx]):
-            task_exec_time = model.latency[sub_model_idx][device_idx][-1]
-        else:
-            task_exec_time = model.latency[sub_model_idx][device_idx][task_seq_num]
-        self.RSUs[rsu_idx].seq_num[model_idx][sub_model_idx] += 1
-        return task_exec_time
 
     def get_all_task_num_all(self, task_list):
         task_num = 0
@@ -169,9 +159,10 @@ class Algo:
         ######
         # LP #
         ######
-        max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)          # 定义最大化吞吐率问题
+        max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)  # 定义最大化吞吐率问题
         x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l = self.lin_var(model_list, model_structure_list,
-                                                               rsu_model_list, rsu_structure_list, task_list, model_list_keys)
+                                                               rsu_model_list, rsu_structure_list, task_list,
+                                                               model_list_keys)
         max_system_throughput += (pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task]
                                              for sub_task in range(len(task_list[job_id_lp])))
                                             for job_id_lp in range(self.get_all_task_num()))
@@ -303,27 +294,108 @@ class Algo:
                             model_structure_idx_lp]
                                 <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(19)
 
+        for rsu_idx_lp in range(self.rsu_num):
+            for job_id_lp in range(self.get_all_task_num()):
+                for sub_task in range(len(task_list[job_id_lp])):
+                    max_system_throughput += (y_i_jk[rsu_idx_lp, job_id_lp, sub_task] <=
+                                              x_i_e[rsu_idx_lp, task_list[job_id_lp][sub_task]["model_idx"],
+                                              task_list[job_id_lp][sub_task]["sub_model_idx"]])  # Extra Constraint
+
+        print("sub_task_num:", self.get_all_task_num_all(task_list))
+
         status = max_system_throughput.solve()
         print(pl.LpStatus[status])
         for v in y_i_jk.values():
             if v.varValue != 0 and v.varValue != None:
                 print(v.name, "=", v.varValue)
-        for v in x_i_i_l.values():
-            if v.varValue != 0 and v.varValue != None:
-                print(v.name, "=", v.varValue)
+        # for v in x_i_i_l.values():
+        #     if v.varValue != 0 and v.varValue != None:
+        #         print(v.name, "=", v.varValue)
         for v in x_i_e.values():
             if v.varValue != 0 and v.varValue != None:
                 print(v.name, "=", v.varValue)
-        for v in x_i_l.values():
-            if v.varValue != 0 and v.varValue != None:
-                print(v.name, "=", v.varValue)
-        for v in z_i_jk_l.values():
-            if v.varValue != 0 and v.varValue != None:
-                print(v.name, "=", v.varValue)
+        # for v in x_i_l.values():
+        #     if v.varValue != 0 and v.varValue != None:
+        #         print(v.name, "=", v.varValue)
+        # for v in z_i_jk_l.values():
+        #     if v.varValue != 0 and v.varValue != None:
+        #         print(v.name, "=", v.varValue)
         print('objective =', pl.value(max_system_throughput.objective))
+        rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr \
+            = self.RR(x_i_l, x_i_i_l, x_i_e, y_i_jk, model_list_keys, model_list, model_structure_list, task_list)
+        print("rsu_model_list_rr", rsu_model_list_rr[0])
+        print("rsu_to_rsu_model_structure_list_rr", rsu_to_rsu_model_structure_list_rr[:][0])
+        print("rsu_model_structure_list_rr", rsu_model_structure_list_rr[0])
+        print("rsu_job_list_rr", rsu_job_list_rr[0])
+        print(self.RSUs[0].get_cached_model())
+        throughput = 0
+        for rsu_idx in range(self.rsu_num):
+            throughput += len(rsu_job_list_rr[rsu_idx])
+        print(throughput)
         t = self.calculate_objective_value(record_task_dict, is_shared=True)
         object_value = sum(t)
         return throughput, object_value, []
+
+    def RR(self, x_i_l, x_i_i_l, x_i_e, y_i_jk, model_list_keys, model_list, model_structure_list, task_list):
+        task_list_new = task_list
+        rsu_model_list_rr = {}
+        rsu_model_structure_list_rr = {}
+        rsu_to_rsu_model_structure_list_rr = [[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]
+                                               for _ in range(self.rsu_num)] for rsu_idx in range(self.rsu_num + 1)]
+        rsu_job_list_rr = [[] for rsu_idx in range(self.rsu_num)]
+        rsu_model_list = [[[0 for _ in range(model_util.Sub_model_num[model_idx])]
+                           for model_idx in range(len(model_util.Model_name))] for rsu_idx in range(self.rsu_num)]
+        rsu_model_structure_list = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]
+                                    for rsu_idx in range(self.rsu_num + 1)]
+
+        for rsu_idx in range(self.rsu_num):
+            for model_idx in model_list_keys:
+                for sub_model_idx in model_list[model_idx]:
+                    x_i_e_value = x_i_e[(rsu_idx, model_idx, sub_model_idx)].value()
+                    if random.uniform(0, 1) <= x_i_e_value:
+                        rsu_model_list[rsu_idx][model_idx][sub_model_idx] = 1
+                        model_name = model_util.get_model_name(model_idx, sub_model_idx)
+                        if rsu_model_list_rr.get(rsu_idx, 0) == 0:
+                            rsu_model_list_rr[rsu_idx] = {model_name}
+                        else:
+                            rsu_model_list_rr[rsu_idx].add(model_name)
+                    else:
+                        rsu_model_list[rsu_idx][model_idx][sub_model_idx] == 0
+
+        for rsu_idx in range(self.rsu_num + 1):
+            for model_structure_idx in model_structure_list:
+                x_i_l_value = x_i_l[(rsu_idx, model_structure_idx)].value()
+                if random.uniform(0, 1) <= x_i_l_value:
+                    rsu_model_structure_list[rsu_idx][model_structure_idx] = 1
+                    if rsu_model_structure_list_rr.get(rsu_idx, 0) == 0:
+                        rsu_model_structure_list_rr[rsu_idx] = {model_structure_idx}
+                    else:
+                        rsu_model_structure_list_rr[rsu_idx].add(model_structure_idx)
+                else:
+                    rsu_model_structure_list[rsu_idx][model_structure_idx] = 0
+
+        for rsu_idx in range(self.rsu_num + 1):
+            for other_rsu_idx in range(self.rsu_num):
+                for model_structure_idx in model_structure_list:
+                    x_i_i_l_value = x_i_i_l[(rsu_idx, other_rsu_idx, model_structure_idx)].value()
+                    if rsu_model_structure_list[rsu_idx][model_structure_idx] == 1:
+                        if random.uniform(0, 1) <= (x_i_i_l_value / x_i_l[(rsu_idx, model_structure_idx)].value()):
+                            rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx] = 1
+
+        for rsu_idx in range(self.rsu_num):
+            for job_id in range(len(task_list_new)):
+                for sub_task in range(len(task_list_new[job_id])):
+                    if task_list_new[job_id][sub_task] is not None:
+                        model_idx = task_list_new[job_id][sub_task]["model_idx"]
+                        sub_model_idx = task_list_new[job_id][sub_task]["sub_model_idx"]
+                        y_i_jk_value = y_i_jk[(rsu_idx, job_id, sub_task)].value()
+                        if rsu_model_list[rsu_idx][model_idx][sub_model_idx] == 1:
+                            if random.uniform(0, 1) <= (
+                                    y_i_jk_value / x_i_e[(rsu_idx, model_idx, sub_model_idx)].value()):
+                                rsu_job_list_rr[rsu_idx].append(task_list_new[job_id][sub_task])
+                                task_list_new[job_id][sub_task] = None
+
+        return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr
 
     def get_variable_range(self, task_list):
         model_list = {}
