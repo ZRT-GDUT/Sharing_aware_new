@@ -75,6 +75,7 @@ class Algo:
             else:
                 for rand_sub_model in model_list_init[rand_model_idx]:
                     model_list[rand_model_idx].add(rand_sub_model)
+        return model_list
 
     def get_rsu_model_list(self):
         rsu_model_list = {}
@@ -89,7 +90,6 @@ class Algo:
                         rsu_structure_list[rsu_idx] = {structure_idx}
                     else:
                         rsu_structure_list[rsu_idx].add(structure_idx)
-        print(rsu_model_list, rsu_structure_list)
         return rsu_model_list, rsu_structure_list
 
     def lin_var(self, model_list, model_structure_list, rsu_model_list, rsu_structure_list,
@@ -114,17 +114,17 @@ class Algo:
             x_i_l[self.rsu_num, model_structure_idx].upBound = 1
         for rsu_idx in rsu_structure_list.keys():
             for model_structure_idx in rsu_structure_list[rsu_idx]:
-                x_i_l[self.rsu_num, model_structure_idx].lowBound = 1
-                x_i_l[self.rsu_num, model_structure_idx].upBound = 1
+                x_i_l[rsu_idx, model_structure_idx].lowBound = 1
+                x_i_l[rsu_idx, model_structure_idx].upBound = 1
 
         x_i_i_l = {(i, j, l): pl.LpVariable('x_i_i_l_{0}_{1}_{2}'.format(i, j, l), lowBound=0, upBound=1,
                                             cat='Continuous')
                    for i in range(self.rsu_num + 1)
                    for j in range(self.rsu_num)
                    for l in model_structure_list}
-        for other_rsu_idx in range(self.rsu_num + 1):
-            for rsu_idx in rsu_structure_list.keys():
-                for model_structure_idx in rsu_structure_list[rsu_idx]:
+        for rsu_idx in rsu_structure_list.keys():
+            for model_structure_idx in rsu_structure_list[rsu_idx]:
+                for other_rsu_idx in range(self.rsu_num + 1):
                     if other_rsu_idx != rsu_idx:
                         x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 0
                         x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 0
@@ -151,7 +151,7 @@ class Algo:
                 x_task_structure):
         model_list_init, model_structure_list_init = self.find_decide_variable()
         model_structure_list = model_structure_list | model_structure_list_init
-        self.get_model_list_merging(model_list, model_list_init)
+        model_list = self.get_model_list_merging(model_list, model_list_init)
         model_list_keys = list(model_list.keys())
         model_list_keys.sort()
         print(model_list, model_structure_list)
@@ -252,9 +252,9 @@ class Algo:
                     range(self.rsu_num)) <= 1)  # Constraint(37)
 
         for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum(((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
+            max_system_throughput += (pl.lpSum((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
                                                  model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
-                                                for model_structure_idx_lp in model_structure_list))
+                                                for model_structure_idx_lp in model_structure_list)
                                       + pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
                         model_idx_jobid_list[job_id_lp]).single_task_size)
                                                   for sub_task in range(len(task_list[job_id_lp])))
@@ -401,8 +401,8 @@ class Algo:
         model_list = {}
         model_structure_list = set()
         for task in task_list:
-            model_idx = task[0]["model_idx"]
             for sub_task in task:
+                model_idx = sub_task["model_idx"]
                 sub_model_idx = sub_task["sub_model_idx"]
                 for model_structure_idx in sub_task["model_structure"]:
                     model_structure_list.add(model_structure_idx)
