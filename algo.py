@@ -253,8 +253,8 @@ class Algo:
 
         for rsu_idx_lp in range(self.rsu_num):
             max_system_throughput += (pl.lpSum((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
-                                                 model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
-                                                for model_structure_idx_lp in model_structure_list)
+                                                model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
+                                               for model_structure_idx_lp in model_structure_list)
                                       + pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
                         model_idx_jobid_list[job_id_lp]).single_task_size)
                                                   for sub_task in range(len(task_list[job_id_lp])))
@@ -299,7 +299,8 @@ class Algo:
                 for sub_task in range(len(task_list[job_id_lp])):
                     max_system_throughput += (y_i_jk[rsu_idx_lp, job_id_lp, sub_task] <=
                                               x_i_e[rsu_idx_lp, task_list[job_id_lp][sub_task]["model_idx"],
-                                              task_list[job_id_lp][sub_task]["sub_model_idx"]])  # Extra Constraint
+                                                    task_list[job_id_lp][sub_task][
+                                                        "sub_model_idx"]])  # Extra Constraint
 
         print("sub_task_num:", self.get_all_task_num_all(task_list))
 
@@ -323,11 +324,7 @@ class Algo:
         print('objective =', pl.value(max_system_throughput.objective))
         rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr \
             = self.RR(x_i_l, x_i_i_l, x_i_e, y_i_jk, model_list_keys, model_list, model_structure_list, task_list)
-        print("rsu_model_list_rr", rsu_model_list_rr[0])
-        print("rsu_to_rsu_model_structure_list_rr", rsu_to_rsu_model_structure_list_rr[:][0])
-        print("rsu_model_structure_list_rr", rsu_model_structure_list_rr[0])
-        print("rsu_job_list_rr", rsu_job_list_rr[0])
-        print(self.RSUs[0].get_cached_model())
+
         throughput = 0
         for rsu_idx in range(self.rsu_num):
             throughput += len(rsu_job_list_rr[rsu_idx])
@@ -374,14 +371,6 @@ class Algo:
                 else:
                     rsu_model_structure_list[rsu_idx][model_structure_idx] = 0
 
-        for rsu_idx in range(self.rsu_num + 1):
-            for other_rsu_idx in range(self.rsu_num):
-                for model_structure_idx in model_structure_list:
-                    x_i_i_l_value = x_i_i_l[(rsu_idx, other_rsu_idx, model_structure_idx)].value()
-                    if rsu_model_structure_list[rsu_idx][model_structure_idx] == 1:
-                        if random.uniform(0, 1) <= (x_i_i_l_value / x_i_l[(rsu_idx, model_structure_idx)].value()):
-                            rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx] = 1
-
         for rsu_idx in range(self.rsu_num):
             for job_id in range(len(task_list_new)):
                 for sub_task in range(len(task_list_new[job_id])):
@@ -394,6 +383,14 @@ class Algo:
                                     y_i_jk_value / x_i_e[(rsu_idx, model_idx, sub_model_idx)].value()):
                                 rsu_job_list_rr[rsu_idx].append(task_list_new[job_id][sub_task])
                                 task_list_new[job_id][sub_task] = None
+
+        for rsu_idx in range(self.rsu_num + 1):
+            for other_rsu_idx in range(self.rsu_num):
+                for model_structure_idx in model_structure_list:
+                    x_i_i_l_value = x_i_i_l[(rsu_idx, other_rsu_idx, model_structure_idx)].value()
+                    if rsu_model_structure_list[rsu_idx][model_structure_idx] == 1:
+                        if random.uniform(0, 1) <= (x_i_i_l_value / x_i_l[(rsu_idx, model_structure_idx)].value()):
+                            rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx] = 1
 
         return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr
 

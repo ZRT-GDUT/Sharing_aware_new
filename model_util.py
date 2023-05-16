@@ -55,6 +55,7 @@ class BaseMethod:
         self.latency = []  # latency of sub task list
         self.model_name = []  # the provided service type
         self.require_sub_model = []  # a model contains different sub model
+        self.require_sub_model_all = []
         self.sub_model_size = []  # in Mb, the size of different sub model
         self.single_task_size = math.inf
 
