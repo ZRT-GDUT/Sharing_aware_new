@@ -54,8 +54,8 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=200, model_ration=6):
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     init_model_deploy(model_ration, rsu_num, RSUs)
-    Algo_new = Algo(RSUs)
     task_list = google_data_util.process_task(rsu_num)
+    Algo_new = Algo(RSUs, task_list)
     Algo_new.iarr(task_list)
 
 
