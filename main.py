@@ -52,16 +52,20 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
 
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=200, model_ration=6):
+    result = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     init_model_deploy(model_ration, rsu_num, RSUs)
     task_list = google_data_util.process_task(rsu_num)
     Algo_new = Algo(RSUs, task_list)
-    Algo_new.iarr(task_list)
+    objective_value = Algo_new.iarr(task_list)
+    return objective_value
 
 
 def rsu_num_change():
+    res = []
     for rsu_num in range(5, 31, 5):
-        run_algo(rsu_num=rsu_num)
+        res.append(run_algo(rsu_num=rsu_num))
+    print(res)
 
 
 # Press the green button in the gutter to run the script.
