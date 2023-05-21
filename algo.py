@@ -1,6 +1,8 @@
 import random
 from typing import List
 
+from pulp import value
+
 import device
 import model_util
 import pulp as pl
@@ -226,8 +228,6 @@ class Algo:
 
         for job_id_lp in range(self.get_all_task_num()):
             for sub_task in range(len(self.task_list[job_id_lp])):
-                if rsu_idx_lp == other_rsu_idx_lp:
-                    continue
                 max_system_throughput += (pl.lpSum(y_i_jk[rsu_idx_lp, job_id_lp, sub_task] *
                                                    self.RSUs[rsu_idx_lp].latency_list
                                                    [self.task_list[job_id_lp][sub_task]["model_idx"]]
@@ -378,6 +378,12 @@ class Algo:
             return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
                 rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput
         else:
+            if pl.LpStatus[status] == "Infeasible":
+                for name, constraint in max_system_throughput.constraints.items():
+                    if value(constraint) > 0:
+                        print(value(constraint))
+                        print("Constraint", constraint, "is not satisfied.")
+
             print(pl.LpStatus[status])
             return pl.LpStatus[status]
 
