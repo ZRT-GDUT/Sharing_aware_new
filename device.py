@@ -12,6 +12,7 @@ class RSU:
     def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=10):
         # transmission rate
         self.seq_num = [[1 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))]
+        self.cached_model_structure_list = set()
         if download_rate is None:
             self.download_rate = random.uniform(450, 550)  # Mbps
         else:
@@ -172,6 +173,7 @@ class RSU:
     def get_rsu_cached_model_size(self, is_share=True):  # 获取已经缓存的模型大小
         model_size = 0
         model_layers = set()
+        model_layers_list = []
         for model_name in self.__caching_model_list:
             model_idx, sub_model_idx = model_util.get_model_info(model_name)
             model = model_util.get_model(model_idx)
@@ -180,11 +182,12 @@ class RSU:
                 model_layers = model_layers | sub_model_layers
             else:
                 for sub_model_layer in sub_model_layers:
-                    model_size += model.sub_model_size[sub_model_layer]
+                    model_size += model_util.Sub_Model_Structure_Size[sub_model_layer]
+                    model_layers_list.append(sub_model_layer)
         if is_share:
             for sub_model_layer in model_layers:
                 model_size += model_util.Sub_Model_Structure_Size[sub_model_layer]
-        return model_size
+        return model_size, model_layers if is_share else model_layers_list
 
     def add_model(self, model_idx, sub_model_idx):  # 为rsu添加模型
         model_name = model_util.get_model_name(model_idx, sub_model_idx)
@@ -211,6 +214,12 @@ class RSU:
             model_size += model.require_model_size(model_idxs, is_share=True)
         return model_size
 
+    def get_caching_model_structure_size(self, model_structure_list):
+        structure_size = 0
+        for model_structure_idx in model_structure_list:
+            if model_structure_idx not in self.cached_model_structure_list:
+                structure_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
+        return structure_size
     def cal_extra_caching_size(self, model_idx, sub_models: List[int]):
         """
         calculate the cache size when model_idx[sub_models] are added.

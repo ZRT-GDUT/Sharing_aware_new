@@ -43,6 +43,13 @@ def Bytes2Mb(size):
     return size / (1024 * 1024)
 
 
+def get_model_sturctures_size(model_structure_list):
+    size = 0
+    for model_structure_idx in model_structure_list:
+        size += Sub_Model_Structure_Size[model_structure_idx]
+    return size
+
+
 class BaseMethod:
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):

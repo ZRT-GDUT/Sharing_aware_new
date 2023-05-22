@@ -41,10 +41,12 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
             rand_model_idx, rand_sub_model_idx = model_util.get_model_info(rand_model_name)
             if rand_model_name not in rand_rsu_model_list:
                 RSUs[rand_rsu_id].add_model(rand_model_idx, rand_sub_model_idx)
-                caching_size = RSUs[rand_rsu_id].get_rsu_cached_model_size(is_share=True)
+                caching_size, cached_model_structure_list = RSUs[rand_rsu_id].get_rsu_cached_model_size(is_share=True)
                 if caching_size <= RSUs[rand_rsu_id].storage_capacity:
                     rand_model_id, rand_sub_model_id = model_util.get_model_info(rand_model_name)
                     RSUs[rand_rsu_id].add_model(rand_model_id, rand_sub_model_id)
+                    for model_structure_idx in cached_model_structure_list:
+                        RSUs[rand_rsu_id].cached_model_structure_list.add(model_structure_idx)
                     model_list_all.remove(rand_model_name)
                     flag = 1
                 else:
