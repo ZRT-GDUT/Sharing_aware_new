@@ -149,16 +149,16 @@ class Algo:
         for rsu_idx in self.rsu_model_list.keys():  # 将已经部署的model设为1
             for rsu_model in self.rsu_model_list[rsu_idx]:
                 model_idx, sub_model_idx = model_util.get_model_info(rsu_model)
-                x_i_e[rsu_idx, model_idx, sub_model_idx].lowBound = 1
-                x_i_e[rsu_idx, model_idx, sub_model_idx].upBound = 1
+                x_i_e[rsu_idx, model_idx, sub_model_idx].setInitialValue(1)
+                x_i_e[rsu_idx, model_idx, sub_model_idx].fixValue()
 
         x_i_l = {(i, l): pl.LpVariable('x_i_l_{0}_{1}'.format(i, l),
                                        lowBound=0, upBound=1, cat='Continuous')
                  for i in range(self.rsu_num + 1)
                  for l in self.model_structure_list}
         for model_structure_idx in self.model_structure_list:  # 默认云上部署了所有的model
-            x_i_l[self.rsu_num, model_structure_idx].lowBound = 1
-            x_i_l[self.rsu_num, model_structure_idx].upBound = 1
+            x_i_l[self.rsu_num, model_structure_idx].setInitialValue(1)
+            x_i_l[self.rsu_num, model_structure_idx].fixValue()
         for rsu_idx in self.rsu_structure_list.keys():
             for model_structure_idx in self.rsu_structure_list[rsu_idx]:  # 将已经部署的structure设为1
                 x_i_l[rsu_idx, model_structure_idx].lowBound = 1
