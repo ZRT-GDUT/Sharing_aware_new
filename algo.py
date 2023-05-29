@@ -1,6 +1,8 @@
 import random
 from typing import List
 
+from pulp import LpStatusInfeasible
+
 import device
 import model_util
 import pulp as pl
@@ -210,128 +212,179 @@ class Algo:
                 for job_id_lp in range(self.get_all_task_num()):
                     for sub_task in range(len(self.task_list[job_id_lp])):
                         for model_structure_idx_lp in self.model_structure_list:
-                            max_system_throughput += (
-                                    z_i_jk_l[
-                                        rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] <=
-                                    y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task])
-                            max_system_throughput += (
-                                    z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp]
-                                    <= x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp])
-                            max_system_throughput += (
-                                    z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp]
-                                    >= (y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] + x_i_i_l[
-                                rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - 1))
+                            constraint1 = pl.LpConstraint(
+                                e=z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] -
+                                  y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task],
+                                sense=pl.LpConstraintLE,
+                                rhs=0
+                            )
+                            constraint2 = pl.LpConstraint(
+                                e=z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] -
+                                  x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp],
+                                sense=pl.LpConstraintLE,
+                                rhs=0
+                            )
+                            constraint3 = pl.LpConstraint(
+                                e=y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] + x_i_i_l[
+                                      rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - z_i_jk_l[
+                                      rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp],
+                                sense=pl.LpConstraintLE,
+                                rhs=1
+                            )
+                            max_system_throughput += constraint1
+                            max_system_throughput += constraint2
+                            max_system_throughput += constraint3
 
         for job_id_lp in range(self.get_all_task_num()):
             for sub_task in range(len(self.task_list[job_id_lp])):
-                if rsu_idx_lp == other_rsu_idx_lp:
-                    continue
-                max_system_throughput += (pl.lpSum(y_i_jk[rsu_idx_lp, job_id_lp, sub_task] *
-                                                   self.RSUs[rsu_idx_lp].latency_list
-                                                   [self.task_list[job_id_lp][sub_task]["model_idx"]]
-                                                   [self.task_list[job_id_lp][sub_task]["sub_model_idx"]]
-                                                   [self.RSUs[rsu_idx_lp].device_idx]
-                                                   [self.task_list[job_id_lp][sub_task]["seq_num"]]
-                                                   for rsu_idx_lp in range(self.rsu_num)) +
-                                          pl.lpSum(
-                                              (((y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
-                                                  self.model_idx_jobid_list[job_id_lp]).single_task_size) / (self.RSUs[
-                                                                                                                 self.task_list[
-                                                                                                                     job_id_lp][
-                                                                                                                     sub_task][
-                                                                                                                     "rsu_id"]].rsu_rate * len(
-                                                  self.task_list[job_id_lp])))
-                                               if rsu_idx_lp != other_rsu_idx_lp else 0
-                                               for rsu_idx_lp in range(self.rsu_num))
-                                              for other_rsu_idx_lp in range(self.rsu_num))
-                                          + pl.lpSum(((((z_i_jk_l[
-                                                             rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] *
-                                                         self.x_task_structure[job_id_lp][sub_task][
-                                                             model_structure_idx_lp]
-                                                         * model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
-                                                        / (self.RSUs[
-                                                               rsu_idx_lp].rsu_rate if rsu_idx_lp != self.rsu_num else
-                                                           self.RSUs[other_rsu_idx_lp].download_rate))
-                                                       for model_structure_idx_lp in self.model_structure_list)
-                                                      for other_rsu_idx_lp in range(self.rsu_num))
-                                                     for rsu_idx_lp in range(self.rsu_num + 1)) <=
-                                          self.task_list[job_id_lp]
-                                          [sub_task]["latency"])  # Constraint(32)
+                constraint1 = pl.LpConstraint(
+                    e=pl.lpSum(y_i_jk[rsu_idx_lp, job_id_lp, sub_task] *
+                               self.RSUs[rsu_idx_lp].latency_list
+                               [self.task_list[job_id_lp][sub_task]["model_idx"]]
+                               [self.task_list[job_id_lp][sub_task]["sub_model_idx"]]
+                               [self.RSUs[rsu_idx_lp].device_idx]
+                               [self.task_list[job_id_lp][sub_task]["seq_num"]]
+                               for rsu_idx_lp in range(self.rsu_num)) +
+                      pl.lpSum(
+                          (((y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
+                              self.model_idx_jobid_list[job_id_lp]).single_task_size) / (self.RSUs[
+                                                                                             self.task_list[
+                                                                                                 job_id_lp][
+                                                                                                 sub_task][
+                                                                                                 "rsu_id"]].rsu_rate * len(
+                              self.task_list[job_id_lp])))
+                           if rsu_idx_lp != other_rsu_idx_lp else 0
+                           for rsu_idx_lp in range(self.rsu_num))
+                          for other_rsu_idx_lp in range(self.rsu_num))
+                      + pl.lpSum(((((z_i_jk_l[
+                                         rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] *
+                                     self.x_task_structure[job_id_lp][sub_task][
+                                         model_structure_idx_lp]
+                                     * model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
+                                    / (self.RSUs[
+                                           rsu_idx_lp].rsu_rate if rsu_idx_lp != self.rsu_num else
+                                       self.RSUs[other_rsu_idx_lp].download_rate))
+                                   for model_structure_idx_lp in self.model_structure_list)
+                                  for other_rsu_idx_lp in range(self.rsu_num))
+                                 for rsu_idx_lp in range(self.rsu_num + 1)),
+                    sense=pl.LpConstraintLE,
+                    rhs=self.task_list[job_id_lp][sub_task]["latency"]
+                )
+                max_system_throughput += constraint1
+                # Constraint(32)
 
         for rsu_idx_lp in range(self.rsu_num):
             for other_rsu_idx_lp in range(self.rsu_num):
                 if rsu_idx_lp == other_rsu_idx_lp:
                     continue
-                max_system_throughput += (pl.lpSum(
-                    ((model_util.get_model(self.model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
-                        other_rsu_idx_lp, job_id_lp, sub_task] / (
-                              self.RSUs[self.task_list[job_id_lp][sub_task]["rsu_id"]].rsu_rate * len(
-                          self.task_list[job_id_lp])))
-                     for sub_task in range(len(self.task_list[job_id_lp])))
-                    for job_id_lp in range(self.get_all_task_num()))
-                                          + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
-                                                       model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
-                                                      self.RSUs[
-                                                          rsu_idx_lp].rsu_rate)
-                                                     for model_structure_idx_lp in
-                                                     self.model_structure_list) <= T_max)  # Constraint(35)
-        for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum(
-                ((x_i_i_l[self.rsu_num, rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[
-                    model_structure_idx_lp])
-                 / self.RSUs[rsu_idx_lp].download_rate) for model_structure_idx_lp in
-                self.model_structure_list) <= T_max)  # Constraint(36)
+                constraint1 = pl.LpConstraint(
+                    e=pl.lpSum(
+                        ((model_util.get_model(self.model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
+                            other_rsu_idx_lp, job_id_lp, sub_task] / (
+                                  self.RSUs[self.task_list[job_id_lp][sub_task]["rsu_id"]].rsu_rate * len(
+                              self.task_list[job_id_lp])))
+                         for sub_task in range(len(self.task_list[job_id_lp])))
+                        for job_id_lp in range(self.get_all_task_num()))
+                      + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
+                                   model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
+                                  self.RSUs[
+                                      rsu_idx_lp].rsu_rate)
+                                 for model_structure_idx_lp in
+                                 self.model_structure_list),
+                    sense=pl.LpConstraintLE,
+                    rhs=T_max
+                )
+                max_system_throughput += constraint1  # Constraint(35)
 
         for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum(
-                ((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] *
-                  self.RSUs[rsu_idx_lp].latency_list[self.task_list[job_id_lp][sub_task]["model_idx"]][
-                      self.task_list[job_id_lp][sub_task]
-                      ["sub_model_idx"]][self.RSUs[rsu_idx_lp].device_idx][
-                      self.task_list[job_id_lp][sub_task]["seq_num"]] / len(self.task_list[job_id_lp]))
-                 for sub_task in range(len(self.task_list[job_id_lp])))
-                for job_id_lp in range(self.get_all_task_num())) <= T_max)  # Constraint(37)
+            constraint1 = pl.LpConstraint(
+                e=pl.lpSum(
+                    ((x_i_i_l[self.rsu_num, rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[
+                        model_structure_idx_lp])
+                     / self.RSUs[rsu_idx_lp].download_rate) for model_structure_idx_lp in
+                    self.model_structure_list),
+                sense=pl.LpConstraintLE,
+                rhs=T_max
+            )
+            max_system_throughput += constraint1  # Constraint(36)
+
+        for rsu_idx_lp in range(self.rsu_num):
+            constraint1 = pl.LpConstraint(
+                e=pl.lpSum(
+                    ((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] *
+                      self.RSUs[rsu_idx_lp].latency_list[self.task_list[job_id_lp][sub_task]["model_idx"]][
+                          self.task_list[job_id_lp][sub_task]
+                          ["sub_model_idx"]][self.RSUs[rsu_idx_lp].device_idx][
+                          self.task_list[job_id_lp][sub_task]["seq_num"]] / len(self.task_list[job_id_lp]))
+                     for sub_task in range(len(self.task_list[job_id_lp])))
+                    for job_id_lp in range(self.get_all_task_num())),
+                sense=pl.LpConstraintLE,
+                rhs=T_max
+            )
+            max_system_throughput += constraint1  # Constraint(37)
 
         for job_id_lp in range(self.get_all_task_num()):
             for sub_task in range(len(self.task_list[job_id_lp])):
-                max_system_throughput += (pl.lpSum(
-                    y_i_jk[rsu_idx_lp, job_id_lp, sub_task] for rsu_idx_lp in
-                    range(self.rsu_num)) <= 1)  # Constraint(38)
+                constraint1 = pl.LpConstraint(
+                    e=pl.lpSum(
+                        y_i_jk[rsu_idx_lp, job_id_lp, sub_task] for rsu_idx_lp in
+                        range(self.rsu_num)),
+                    sense=pl.LpConstraintLE,
+                    rhs=1
+                )
+                max_system_throughput += constraint1  # Constraint(38)
 
         for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
-                                                model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
-                                               for model_structure_idx_lp in self.model_structure_list)
-                                      + pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
-                        self.model_idx_jobid_list[job_id_lp]).single_task_size / len(
-                        self.task_list[job_id_lp][sub_task]))
-                                                  for sub_task in range(len(self.task_list[job_id_lp])))
-                                                 for job_id_lp in range(self.get_all_task_num())) <= self.RSUs[
-                                          rsu_idx_lp].storage_capacity)  # Constraint(15)
+            constraint1 = pl.LpConstraint(
+                e=pl.lpSum((x_i_l[rsu_idx_lp, model_structure_idx_lp] *
+                            model_util.Sub_Model_Structure_Size[model_structure_idx_lp])
+                           for model_structure_idx_lp in self.model_structure_list)
+                  + pl.lpSum(((y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * model_util.get_model(
+                    self.model_idx_jobid_list[job_id_lp]).single_task_size / len(
+                    self.task_list[job_id_lp][sub_task]))
+                              for sub_task in range(len(self.task_list[job_id_lp])))
+                             for job_id_lp in range(self.get_all_task_num())),
+                sense=pl.LpConstraintLE,
+                rhs=self.RSUs[rsu_idx_lp].storage_capacity
+            )
+            max_system_throughput += constraint1  # Constraint(15)
 
         for rsu_idx_lp in range(self.rsu_num + 1):
             for other_rsu_idx_lp in range(self.rsu_num):
                 for model_structure_idx_lp in self.model_structure_list:
-                    max_system_throughput += (x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] <= x_i_l
-                    [rsu_idx_lp, model_structure_idx_lp])  # Constraint(17)
+                    constraint1 = pl.LpConstraint(
+                        e=x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - x_i_l[
+                            rsu_idx_lp, model_structure_idx_lp],
+                        sense=pl.LpConstraintLE,
+                        rhs=0
+                    )
+                    max_system_throughput += constraint1  # Constraint(17)
 
         for rsu_idx_lp in range(self.rsu_num):
             for model_idx_lp in self.model_list_keys:
                 for sub_model_idx_lp in self.model_list[model_idx_lp]:
                     for model_structure_idx_lp in self.model_structure_list:
-                        max_system_throughput += ((self.x_structure_model[model_idx_lp][sub_model_idx_lp][
-                                                       model_structure_idx_lp] * x_i_e[
-                                                       rsu_idx_lp, model_idx_lp, sub_model_idx_lp]) <=
-                                                  pl.lpSum(x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp]
-                                                           for other_rsu_idx_lp in
-                                                           range(self.rsu_num + 1)))  # Constraint(18)
+                        constraint1 = pl.LpConstraint(
+                            e=self.x_structure_model[model_idx_lp][sub_model_idx_lp][
+                                  model_structure_idx_lp] * x_i_e[
+                                  rsu_idx_lp, model_idx_lp, sub_model_idx_lp] - pl.lpSum(
+                                x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp]
+                                for other_rsu_idx_lp in
+                                range(self.rsu_num + 1)),
+                            sense=pl.LpConstraintLE,
+                            rhs=0
+                        )
+                        max_system_throughput += constraint1  # Constraint(18)
 
         for rsu_idx_lp in range(self.rsu_num):
             for model_structure_idx_lp in self.model_structure_list:
-                max_system_throughput += (pl.lpSum(
-                    x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] for other_rsu_idx_lp in
-                    range(self.rsu_num + 1)
-                ) <= 1)  # Constraint(19)
+                constraint1 = pl.LpConstraint(
+                    e=pl.lpSum(x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] for other_rsu_idx_lp in
+                               range(self.rsu_num + 1)),
+                    sense=pl.LpConstraintLE,
+                    rhs=1
+                )
+                max_system_throughput += constraint1  # Constraint(19)
 
         for rsu_idx_lp in range(self.rsu_num):
             for job_id_lp in range(self.get_all_task_num()):
@@ -345,10 +398,24 @@ class Algo:
         for rsu_idx_lp in range(self.rsu_num):
             for job_id_lp in range(self.get_all_task_num()):
                 for sub_task in range(len(self.task_list[job_id_lp])):
-                    max_system_throughput += (y_i_jk[rsu_idx_lp, job_id_lp, sub_task] <=
-                                              x_i_e[rsu_idx_lp, self.task_list[job_id_lp][sub_task]["model_idx"],
-                                              self.task_list[job_id_lp][sub_task][
-                                                  "sub_model_idx"]])  # Extra Constraint 1
+                    constraint1 = pl.LpConstraint(
+                        e=y_i_jk[rsu_idx_lp, job_id_lp, sub_task] -
+                          x_i_e[rsu_idx_lp, self.task_list[job_id_lp][sub_task]["model_idx"],
+                          self.task_list[job_id_lp][sub_task][
+                              "sub_model_idx"]],
+                        sense=pl.LpConstraintLE,
+                        rhs=0
+                    )
+                    max_system_throughput += constraint1  # Extra Constraint 1
+
+        for other_rsu_idx_lp in range(self.rsu_num+1):
+            for rsu_idx_lp in range(self.rsu_num):
+                for model_structure_idx_lp in self.model_structure_list:
+                    constraint1 = pl.LpConstraint(
+                        e=x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] - x_i_l[rsu_idx_lp, model_structure_idx_lp],
+                        sense=pl.LpConstraintLE,
+                        rhs=0
+                    )
 
         status = max_system_throughput.solve()
         print(pl.LpStatus[status])
@@ -376,6 +443,11 @@ class Algo:
             return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
                 rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput
         else:
+            # 假设 prob 为 PuLP 中的问题对象
+            unsatisfied_constraints = [c for c in max_system_throughput.constraints.values() if c.slack < 0]
+            for c in unsatisfied_constraints:
+                print(f"Unsatisfied constraint: {c}, slack: {c.slack},values: {[v.value() for v in c.keys()]}")
+
             return pl.LpStatus[status]
 
     def lin_pro(self, T_max, task_list):
@@ -421,6 +493,16 @@ class Algo:
                         rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx]
                     x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].upBound = \
                         rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx]
+
+        for other_rsu_idx_lp in range(self.rsu_num + 1):
+            for rsu_idx_lp in range(self.rsu_num):
+                for job_id_lp in range(self.get_all_task_num()):
+                    for sub_task in range(len(self.task_list[job_id_lp])):
+                        for model_structure_idx_lp in self.model_structure_list:
+                            if rsu_to_rsu_model_structure_list_rr[other_rsu_idx_lp][rsu_idx_lp][model_structure_idx_lp] == 1 and rsu_job_list[rsu_idx_lp][job_id_lp][sub_task] == 1:
+                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].setInitialValue(1)
+                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].fixValue()
+
         status = self.lin_con(T_max, task_list, x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l, max_system_throughput, 0)
         # print("rsu_model_list_rr:", rsu_model_list_rr[1])
         # print("rsu_to_rsu_model_structure_list_rr:", rsu_to_rsu_model_structure_list_rr[:][1])
@@ -619,7 +701,8 @@ class Algo:
                         download_time = 0
                     else:
                         if is_shared:
-                            task_model_size = self.RSUs[rsu_idx].get_caching_model_structure_size(sub_task["model_structure"])
+                            task_model_size = self.RSUs[rsu_idx].get_caching_model_structure_size(
+                                sub_task["model_structure"])
                         else:
                             task_model_size = model_util.get_model_sturctures_size(sub_task["model_structure"])
                         download_time = task_model_size / self.RSUs[rsu_idx].download_rate
