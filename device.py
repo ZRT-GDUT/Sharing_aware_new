@@ -35,7 +35,7 @@ class RSU:
             self.has_cpu = True
         self.trans_cpu_gpu = 16 * 1024  # Gbps
         # storage
-        self.storage_capacity = random.uniform(300, 1200)  # to do ...
+        self.storage_capacity = random.uniform(300, max_storage)  # to do ...
         # task
         self.task_list = []
         self.__caching_model_list = set()  # data: get_model_name(model_idx, sub_model_idx)

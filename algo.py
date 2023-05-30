@@ -1,4 +1,6 @@
 import random
+import uuid
+from datetime import time
 from typing import List
 
 from pulp import LpStatusInfeasible
@@ -216,20 +218,23 @@ class Algo:
                                 e=z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] -
                                   y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task],
                                 sense=pl.LpConstraintLE,
-                                rhs=0
+                                rhs=0,
+                                name=f'constraint1_{uuid.uuid4()}'
                             )
                             constraint2 = pl.LpConstraint(
                                 e=z_i_jk_l[rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp] -
                                   x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp],
                                 sense=pl.LpConstraintLE,
-                                rhs=0
+                                rhs=0,
+                                name=f'constraint1_{uuid.uuid4()}'
                             )
                             constraint3 = pl.LpConstraint(
                                 e=y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] + x_i_i_l[
-                                      rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - z_i_jk_l[
+                                    rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - z_i_jk_l[
                                       rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp],
                                 sense=pl.LpConstraintLE,
-                                rhs=1
+                                rhs=1,
+                                name=f'constraint1_{uuid.uuid4()}'
                             )
                             max_system_throughput += constraint1
                             max_system_throughput += constraint2
@@ -268,7 +273,8 @@ class Algo:
                                   for other_rsu_idx_lp in range(self.rsu_num))
                                  for rsu_idx_lp in range(self.rsu_num + 1)),
                     sense=pl.LpConstraintLE,
-                    rhs=self.task_list[job_id_lp][sub_task]["latency"]
+                    rhs=self.task_list[job_id_lp][sub_task]["latency"],
+                    name=f'jobtime_{uuid.uuid4()}'
                 )
                 max_system_throughput += constraint1
                 # Constraint(32)
@@ -281,8 +287,8 @@ class Algo:
                     e=pl.lpSum(
                         ((model_util.get_model(self.model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
                             other_rsu_idx_lp, job_id_lp, sub_task] / (
-                                  self.RSUs[self.task_list[job_id_lp][sub_task]["rsu_id"]].rsu_rate * len(
-                              self.task_list[job_id_lp])))
+                                  self.RSUs[rsu_idx_lp].rsu_rate * len(
+                              self.task_list[job_id_lp]))) if self.task_list[job_id_lp][sub_task]["rsu_id"] == rsu_idx_lp else 0
                          for sub_task in range(len(self.task_list[job_id_lp])))
                         for job_id_lp in range(self.get_all_task_num()))
                       + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
@@ -292,7 +298,8 @@ class Algo:
                                  for model_structure_idx_lp in
                                  self.model_structure_list),
                     sense=pl.LpConstraintLE,
-                    rhs=T_max
+                    rhs=T_max,
+                    name=f'constraint1_{uuid.uuid4()}'
                 )
                 max_system_throughput += constraint1  # Constraint(35)
 
@@ -401,18 +408,19 @@ class Algo:
                     constraint1 = pl.LpConstraint(
                         e=y_i_jk[rsu_idx_lp, job_id_lp, sub_task] -
                           x_i_e[rsu_idx_lp, self.task_list[job_id_lp][sub_task]["model_idx"],
-                          self.task_list[job_id_lp][sub_task][
-                              "sub_model_idx"]],
+                                self.task_list[job_id_lp][sub_task][
+                                    "sub_model_idx"]],
                         sense=pl.LpConstraintLE,
                         rhs=0
                     )
                     max_system_throughput += constraint1  # Extra Constraint 1
 
-        for other_rsu_idx_lp in range(self.rsu_num+1):
+        for other_rsu_idx_lp in range(self.rsu_num + 1):
             for rsu_idx_lp in range(self.rsu_num):
                 for model_structure_idx_lp in self.model_structure_list:
                     constraint1 = pl.LpConstraint(
-                        e=x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] - x_i_l[rsu_idx_lp, model_structure_idx_lp],
+                        e=x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] - x_i_l[
+                            rsu_idx_lp, model_structure_idx_lp],
                         sense=pl.LpConstraintLE,
                         rhs=0
                     )
@@ -438,16 +446,15 @@ class Algo:
         throughput = pl.value(max_system_throughput.objective)
         if flag:
             rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
-                rsu_model_list, rsu_model_structure_list, rsu_job_list = self.RR(x_i_l, x_i_i_l, x_i_e, y_i_jk,
-                                                                                 task_list)
+            rsu_model_list, rsu_model_structure_list, rsu_job_list = self.RR(x_i_l, x_i_i_l, x_i_e, y_i_jk,
+                                                                             task_list)
             return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
-                rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput
+                   rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput
         else:
             # 假设 prob 为 PuLP 中的问题对象
             unsatisfied_constraints = [c for c in max_system_throughput.constraints.values() if c.slack < 0]
             for c in unsatisfied_constraints:
                 print(f"Unsatisfied constraint: {c}, slack: {c.slack},values: {[v.value() for v in c.keys()]}")
-
             return pl.LpStatus[status]
 
     def lin_pro(self, T_max, task_list):
@@ -463,7 +470,7 @@ class Algo:
                                             for job_id_lp in range(self.get_all_task_num()))
                                            for rsu_idx_lp in range(self.rsu_num)))  # 目标函数
         rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
-            rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput = \
+        rsu_model_list, rsu_model_structure_list, rsu_job_list, throughput = \
             self.lin_con(T_max, task_list, x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l, max_system_throughput, 1)
 
         for rsu_idx in range(self.rsu_num):
@@ -499,9 +506,13 @@ class Algo:
                 for job_id_lp in range(self.get_all_task_num()):
                     for sub_task in range(len(self.task_list[job_id_lp])):
                         for model_structure_idx_lp in self.model_structure_list:
-                            if rsu_to_rsu_model_structure_list_rr[other_rsu_idx_lp][rsu_idx_lp][model_structure_idx_lp] == 1 and rsu_job_list[rsu_idx_lp][job_id_lp][sub_task] == 1:
-                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].setInitialValue(1)
-                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].fixValue()
+                            if rsu_to_rsu_model_structure_list_rr[other_rsu_idx_lp][rsu_idx_lp][
+                                model_structure_idx_lp] == 1 and rsu_job_list[rsu_idx_lp][job_id_lp][sub_task] == 1:
+                                z_i_jk_l[
+                                    other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].setInitialValue(
+                                    1)
+                                z_i_jk_l[
+                                    other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].fixValue()
 
         status = self.lin_con(T_max, task_list, x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l, max_system_throughput, 0)
         # print("rsu_model_list_rr:", rsu_model_list_rr[1])
@@ -586,7 +597,7 @@ class Algo:
                             rsu_model_structure_list[other_rsu_idx][model_structure_idx] = 1
 
         return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
-            rsu_model_list, rsu_model_structure_list, rsu_job_list
+               rsu_model_list, rsu_model_structure_list, rsu_job_list
 
     def generate_task_to_structure(self):
         x_task_structure = [[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]
@@ -602,7 +613,7 @@ class Algo:
 
     def arr(self, T_max, task_list):
         rsu_model_list_rr, rsu_job_list_rr, rsu_model_structure_list_rr, rsu_to_rsu_model_structure_list_rr, \
-            throughput = self.lin_pro(T_max, task_list)
+        throughput = self.lin_pro(T_max, task_list)
         # self.clear_rsu_task_list()
         # self.allocate_task_for_rsu(rsu_job_list_rr)
         # self.allocate_model_for_rsu_later(rsu_model_list_rr)
