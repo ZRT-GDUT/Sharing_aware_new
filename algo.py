@@ -163,8 +163,8 @@ class Algo:
             x_i_l[self.rsu_num, model_structure_idx].fixValue()
         for rsu_idx in self.rsu_structure_list.keys():
             for model_structure_idx in self.rsu_structure_list[rsu_idx]:  # 将已经部署的structure设为1
-                x_i_l[rsu_idx, model_structure_idx].lowBound = 1
-                x_i_l[rsu_idx, model_structure_idx].upBound = 1
+                x_i_l[rsu_idx, model_structure_idx].setInitialValue(1)
+                x_i_l[rsu_idx, model_structure_idx].fixValue()
 
         x_i_i_l = {(i, j, l): pl.LpVariable('x_i_i_l_{0}_{1}_{2}'.format(i, j, l), lowBound=0, upBound=1,
                                             cat='Continuous')
@@ -175,21 +175,21 @@ class Algo:
             for model_structure_idx in self.rsu_structure_list[rsu_idx]:
                 for other_rsu_idx in range(self.rsu_num + 1):
                     if other_rsu_idx != rsu_idx:
-                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 0
-                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 0
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].setInitialValue(0)
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].fixValue()
                     else:
-                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].lowBound = 1
-                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].upBound = 1
-        for rsu_idx in range(self.rsu_num):  # 设定rsu不会向其它rsu传输没有的structure
-            for model_structure_idx in self.model_structure_list:
-                if self.rsu_structure_list.get(rsu_idx, 0) == 0:
-                    for other_rsu_idx in range(self.rsu_num):
-                        x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].lowBound = 0
-                        x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].upBound = 0
-                elif model_structure_idx not in self.rsu_structure_list[rsu_idx]:
-                    for other_rsu_idx in range(self.rsu_num):
-                        x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].lowBound = 0
-                        x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].upBound = 0
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].setInitialValue(1)
+                        x_i_i_l[other_rsu_idx, rsu_idx, model_structure_idx].fixValue()
+        # for rsu_idx in range(self.rsu_num):  # 设定rsu不会向其它rsu传输没有的structure
+        #     for model_structure_idx in self.model_structure_list:
+        #         if self.rsu_structure_list.get(rsu_idx, 0) == 0:
+        #             for other_rsu_idx in range(self.rsu_num):
+        #                 x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].setInitialValue(0)
+        #                 x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].fixValue()
+        #         elif model_structure_idx not in self.rsu_structure_list[rsu_idx]:
+        #             for other_rsu_idx in range(self.rsu_num):
+        #                 x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].setInitialValue(0)
+        #                 x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].fixValue()
 
         y_i_jk = {
             (i, j, m): pl.LpVariable('y_i_jk_{0}_{1}_{2}'.format(i, j, m), lowBound=0, upBound=1, cat='Continuous')
@@ -226,7 +226,7 @@ class Algo:
                             )
                             constraint3 = pl.LpConstraint(
                                 e=y_i_jk[other_rsu_idx_lp, job_id_lp, sub_task] + x_i_i_l[
-                                      rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - z_i_jk_l[
+                                    rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] - z_i_jk_l[
                                       rsu_idx_lp, other_rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp],
                                 sense=pl.LpConstraintLE,
                                 rhs=1
@@ -282,7 +282,8 @@ class Algo:
                         ((model_util.get_model(self.model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
                             other_rsu_idx_lp, job_id_lp, sub_task] / (
                                   self.RSUs[self.task_list[job_id_lp][sub_task]["rsu_id"]].rsu_rate * len(
-                              self.task_list[job_id_lp])))
+                              self.task_list[job_id_lp]))) if other_rsu_idx_lp != self.task_list[job_id_lp][sub_task][
+                            "rsu_id"] else 0
                          for sub_task in range(len(self.task_list[job_id_lp])))
                         for job_id_lp in range(self.get_all_task_num()))
                       + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
@@ -317,7 +318,15 @@ class Algo:
                           ["sub_model_idx"]][self.RSUs[rsu_idx_lp].device_idx][
                           self.task_list[job_id_lp][sub_task]["seq_num"]] / len(self.task_list[job_id_lp]))
                      for sub_task in range(len(self.task_list[job_id_lp])))
-                    for job_id_lp in range(self.get_all_task_num())),
+                    for job_id_lp in range(self.get_all_task_num())) +
+                  pl.lpSum(
+                      ((model_util.get_model(self.model_idx_jobid_list[job_id_lp]).single_task_size * y_i_jk[
+                          rsu_idx_lp, job_id_lp, sub_task] / (
+                                self.RSUs[self.task_list[job_id_lp][sub_task]["rsu_id"]].rsu_rate * len(
+                            self.task_list[job_id_lp]))) if rsu_idx_lp != self.task_list[job_id_lp][sub_task][
+                          "rsu_id"] else 0
+                       for sub_task in range(len(self.task_list[job_id_lp])))
+                      for job_id_lp in range(self.get_all_task_num())),
                 sense=pl.LpConstraintLE,
                 rhs=T_max
             )
@@ -369,8 +378,7 @@ class Algo:
                                   model_structure_idx_lp] * x_i_e[
                                   rsu_idx_lp, model_idx_lp, sub_model_idx_lp] - pl.lpSum(
                                 x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp]
-                                for other_rsu_idx_lp in
-                                range(self.rsu_num + 1)),
+                                for other_rsu_idx_lp in range(self.rsu_num + 1)),
                             sense=pl.LpConstraintLE,
                             rhs=0
                         )
@@ -393,7 +401,7 @@ class Algo:
                         max_system_throughput += (
                                 y_i_jk[rsu_idx_lp, job_id_lp, sub_task] * self.x_task_structure[job_id_lp][sub_task][
                             model_structure_idx_lp]
-                                <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(19)
+                                <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(20)
 
         for rsu_idx_lp in range(self.rsu_num):
             for job_id_lp in range(self.get_all_task_num()):
@@ -408,11 +416,12 @@ class Algo:
                     )
                     max_system_throughput += constraint1  # Extra Constraint 1
 
-        for other_rsu_idx_lp in range(self.rsu_num+1):
+        for other_rsu_idx_lp in range(self.rsu_num + 1):
             for rsu_idx_lp in range(self.rsu_num):
                 for model_structure_idx_lp in self.model_structure_list:
                     constraint1 = pl.LpConstraint(
-                        e=x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] - x_i_l[rsu_idx_lp, model_structure_idx_lp],
+                        e=x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] - x_i_l[
+                            rsu_idx_lp, model_structure_idx_lp],
                         sense=pl.LpConstraintLE,
                         rhs=0
                     )
@@ -445,10 +454,11 @@ class Algo:
         else:
             # 假设 prob 为 PuLP 中的问题对象
             unsatisfied_constraints = [c for c in max_system_throughput.constraints.values() if c.slack < 0]
-            for c in unsatisfied_constraints:
-                print(f"Unsatisfied constraint: {c}, slack: {c.slack},values: {[v.value() for v in c.keys()]}")
-
-            return pl.LpStatus[status]
+            half = len(unsatisfied_constraints) // 2
+            for c in range(half):
+                print(
+                    f"Unsatisfied constraint: {unsatisfied_constraints[c]}, slack: {unsatisfied_constraints[c].slack},values: {[v.value() for v in unsatisfied_constraints[c].keys()]}")
+            return pl.LpStatus[status], pl.value(max_system_throughput.objective)
 
     def lin_pro(self, T_max, task_list):
         ######
@@ -499,11 +509,17 @@ class Algo:
                 for job_id_lp in range(self.get_all_task_num()):
                     for sub_task in range(len(self.task_list[job_id_lp])):
                         for model_structure_idx_lp in self.model_structure_list:
-                            if rsu_to_rsu_model_structure_list_rr[other_rsu_idx_lp][rsu_idx_lp][model_structure_idx_lp] == 1 and rsu_job_list[rsu_idx_lp][job_id_lp][sub_task] == 1:
-                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].setInitialValue(1)
-                                z_i_jk_l[other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].fixValue()
-
-        status = self.lin_con(T_max, task_list, x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l, max_system_throughput, 0)
+                            if rsu_to_rsu_model_structure_list_rr[other_rsu_idx_lp][rsu_idx_lp][
+                                model_structure_idx_lp] == 1 and rsu_job_list[rsu_idx_lp][job_id_lp][sub_task] == 1:
+                                z_i_jk_l[
+                                    other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].setInitialValue(
+                                    1)
+                                z_i_jk_l[
+                                    other_rsu_idx_lp, rsu_idx_lp, job_id_lp, sub_task, model_structure_idx_lp].fixValue()
+        # status = 'Infeasible'
+        # obj = self.get_all_task_num_all()
+        # while status == 'Infeasible':
+        status, obj = self.lin_con(T_max, task_list, x_i_e, x_i_l, x_i_i_l, y_i_jk, z_i_jk_l, max_system_throughput, 0)
         # print("rsu_model_list_rr:", rsu_model_list_rr[1])
         # print("rsu_to_rsu_model_structure_list_rr:", rsu_to_rsu_model_structure_list_rr[:][1])
         # print("rsu_model_structure_list_rr:", rsu_model_structure_list_rr[1])
@@ -511,7 +527,7 @@ class Algo:
         # print(self.RSUs[1].get_cached_model())
         # self.RR_new(rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr)
         print(self.get_all_task_num_all())
-        return rsu_model_list_rr, rsu_job_list_rr, rsu_model_structure_list_rr, rsu_to_rsu_model_structure_list_rr, throughput1
+        return rsu_model_list_rr, rsu_job_list_rr, rsu_model_structure_list_rr, rsu_to_rsu_model_structure_list_rr, obj1
 
     # def RR_new(self,rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr):
     #     for rsu_idx in range(self.rsu_num):
@@ -540,9 +556,13 @@ class Algo:
 
         for rsu_idx in range(self.rsu_num):
             for model_idx in self.model_list_keys:
+                model = model_util.get_model(model_idx)
                 for sub_model_idx in self.model_list[model_idx]:
                     x_i_e_value = x_i_e[(rsu_idx, model_idx, sub_model_idx)].value()
                     if random.uniform(0, 1) <= x_i_e_value:
+                        for model_structure_idx in model.require_sub_model_all[sub_model_idx]:
+                            rsu_model_structure_list[rsu_idx][model_structure_idx] = 1
+                            rsu_model_structure_list_rr[rsu_idx].add(model_structure_idx)
                         rsu_model_list[rsu_idx][model_idx][sub_model_idx] = 1
                         model_name = model_util.get_model_name(model_idx, sub_model_idx)
                         if model_name not in self.rsu_model_list[rsu_idx]:
@@ -581,9 +601,44 @@ class Algo:
                     x_i_i_l_value = x_i_i_l[(rsu_idx, other_rsu_idx, model_structure_idx)].value()
                     if rsu_model_structure_list[rsu_idx][model_structure_idx] == 1:
                         if random.uniform(0, 1) <= (x_i_i_l_value / x_i_l[(rsu_idx, model_structure_idx)].value()):
-                            rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx] = 1
-                            rsu_model_structure_list_rr[other_rsu_idx].add(model_structure_idx)
-                            rsu_model_structure_list[other_rsu_idx][model_structure_idx] = 1
+                            flag = 1
+                            for rsu_idx_new in range(self.rsu_num + 1):  # 排除出现多个rsu给同一个rsu传输相同model structure
+                                if rsu_to_rsu_model_structure_list_rr[rsu_idx_new][other_rsu_idx][
+                                    model_structure_idx] == 1:
+                                    flag = 0
+                            if flag:
+                                rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx] = 1
+                                rsu_model_structure_list_rr[other_rsu_idx].add(model_structure_idx)
+                                rsu_model_structure_list[other_rsu_idx][model_structure_idx] = 1
+
+        rsu_model_structure_list_all = rsu_model_structure_list_rr
+        for rsu_idx in range(self.rsu_num):
+            for model_structure_idx in self.rsu_structure_list[rsu_idx]:
+                rsu_model_structure_list_all[rsu_idx].add(model_structure_idx)
+
+        for rsu_idx in range(self.rsu_num):
+            for model_idx in range(len(model_util.Model_name)):
+                for sub_model_idx in range(model_util.Sub_model_num[model_idx]):
+                    model = model_util.get_model(model_idx)
+                    if rsu_model_list[rsu_idx][model_idx][sub_model_idx] == 1:
+                        for model_structure_idx in model.require_sub_model_all[sub_model_idx]:
+                            flag = 1
+                            for i in range(self.rsu_num + 1):
+                                if rsu_to_rsu_model_structure_list_rr[i][rsu_idx][model_structure_idx] == 1:
+                                    flag = 0
+                            if flag:
+                                download_time = 999999
+                                for rsu_idx_new in range(self.rsu_num + 1):
+                                    if model_structure_idx in rsu_model_structure_list_all[rsu_idx_new]:
+                                        download_time_temp = model_util.Sub_Model_Structure_Size[
+                                                                 model_structure_idx] / \
+                                                             (self.RSUs[
+                                                                  rsu_idx_new].rsu_rate if rsu_idx_new != self.rsu_num else
+                                                              self.RSUs[rsu_idx].download_rate)
+                                        if download_time_temp <= download_time:
+                                            download_time = download_time_temp
+                                            offloading_rsu = rsu_idx_new
+                                rsu_to_rsu_model_structure_list_rr[offloading_rsu][rsu_idx][model_structure_idx] = 1
 
         return rsu_model_list_rr, rsu_to_rsu_model_structure_list_rr, rsu_model_structure_list_rr, rsu_job_list_rr, \
             rsu_model_list, rsu_model_structure_list, rsu_job_list
