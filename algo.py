@@ -285,13 +285,13 @@ class Algo:
                               self.task_list[job_id_lp]))) if other_rsu_idx_lp != self.task_list[job_id_lp][sub_task][
                             "rsu_id"] else 0
                          for sub_task in range(len(self.task_list[job_id_lp])))
-                        for job_id_lp in range(self.get_all_task_num()))
-                      + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
-                                   model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
-                                  self.RSUs[
-                                      rsu_idx_lp].rsu_rate)
-                                 for model_structure_idx_lp in
-                                 self.model_structure_list),
+                        for job_id_lp in range(self.get_all_task_num())),
+                      # + pl.lpSum(((x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] *
+                      #              model_util.Sub_Model_Structure_Size[model_structure_idx_lp]) /
+                      #             self.RSUs[
+                      #                 rsu_idx_lp].rsu_rate)
+                      #            for model_structure_idx_lp in
+                      #            self.model_structure_list),
                     sense=pl.LpConstraintLE,
                     rhs=T_max
                 )
@@ -440,9 +440,6 @@ class Algo:
         for v in x_i_l.values():
             if v.varValue != 0 and v.varValue != None:
                 print(v.name, "=", v.varValue)
-        for v in z_i_jk_l.values():
-            if v.varValue != 0 and v.varValue != None:
-                print(v.name, "=", v.varValue)
         print('objective =', pl.value(max_system_throughput.objective))
         throughput = pl.value(max_system_throughput.objective)
         if flag:
@@ -479,30 +476,27 @@ class Algo:
         for rsu_idx in range(self.rsu_num):
             for job_id in range(len(self.task_list)):
                 for sub_task in range(len(self.task_list[job_id])):
-                    y_i_jk[rsu_idx, job_id, sub_task].lowBound = rsu_job_list[rsu_idx][job_id][sub_task]
-                    y_i_jk[rsu_idx, job_id, sub_task].upBound = rsu_job_list[rsu_idx][job_id][sub_task]
+                    y_i_jk[rsu_idx, job_id, sub_task].setInitialValue(rsu_job_list[rsu_idx][job_id][sub_task])
+                    y_i_jk[rsu_idx, job_id, sub_task].fixValue()
 
         for rsu_idx in range(self.rsu_num):
             for model_idx in self.model_list_keys:
                 for sub_model_idx in self.model_list[model_idx]:
-                    x_i_e[rsu_idx, model_idx, sub_model_idx].lowBound = rsu_model_list[rsu_idx][model_idx][
-                        sub_model_idx]
-                    x_i_e[rsu_idx, model_idx, sub_model_idx].upBound = rsu_model_list[rsu_idx][model_idx][
-                        sub_model_idx]
+                    x_i_e[rsu_idx, model_idx, sub_model_idx].setInitialValue(rsu_model_list[rsu_idx][model_idx][
+                        sub_model_idx])
+                    x_i_e[rsu_idx, model_idx, sub_model_idx].fixValue()
 
         for rsu_idx in range(self.rsu_num + 1):
             for model_structure_idx in self.model_structure_list:
-                x_i_l[rsu_idx, model_structure_idx].lowBound = rsu_model_structure_list[rsu_idx][
-                    model_structure_idx]
-                x_i_l[rsu_idx, model_structure_idx].upBound = rsu_model_structure_list[rsu_idx][model_structure_idx]
+                x_i_l[rsu_idx, model_structure_idx].setInitialValue(rsu_model_structure_list[rsu_idx][
+                    model_structure_idx])
+                x_i_l[rsu_idx, model_structure_idx].fixValue()
 
         for rsu_idx in range(self.rsu_num + 1):
             for other_rsu_idx in range(self.rsu_num):
                 for model_structure_idx in self.model_structure_list:
-                    x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].lowBound = \
-                        rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx]
-                    x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].upBound = \
-                        rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx]
+                    x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].setInitialValue(rsu_to_rsu_model_structure_list_rr[rsu_idx][other_rsu_idx][model_structure_idx])
+                    x_i_i_l[rsu_idx, other_rsu_idx, model_structure_idx].fixValue()
 
         for other_rsu_idx_lp in range(self.rsu_num + 1):
             for rsu_idx_lp in range(self.rsu_num):
@@ -563,6 +557,18 @@ class Algo:
                         for model_structure_idx in model.require_sub_model_all[sub_model_idx]:
                             rsu_model_structure_list[rsu_idx][model_structure_idx] = 1
                             rsu_model_structure_list_rr[rsu_idx].add(model_structure_idx)
+                            download_time = 99999
+                            if x_i_i_l[rsu_idx, rsu_idx, model_structure_idx].value() != 1:
+                                for other_rsu_idx in self.rsu_structure_list.keys():
+                                    if model_structure_idx in self.rsu_structure_list[other_rsu_idx]:
+                                        download_time_temp = model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                                             (self.RSUs[other_rsu_idx].rsu_rate
+                                                              if other_rsu_idx != self.rsu_num else self.RSUs[
+                                                                 rsu_idx].download_rate)
+                                        if download_time_temp <= download_time:
+                                            download_time = download_time_temp
+                                            offloading_rsu = other_rsu_idx
+                                rsu_to_rsu_model_structure_list_rr[offloading_rsu][rsu_idx][model_structure_idx] = 1
                         rsu_model_list[rsu_idx][model_idx][sub_model_idx] = 1
                         model_name = model_util.get_model_name(model_idx, sub_model_idx)
                         if model_name not in self.rsu_model_list[rsu_idx]:
