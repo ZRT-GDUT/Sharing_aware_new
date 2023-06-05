@@ -26,7 +26,7 @@ def print_date():
 
 
 def generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage):
-    return [device.RSU(rsu_num, device_ration, max_storage, download_rate, rsu_rate) for i in range(rsu_num)]
+    return [device.RSU(device_ration, max_storage, download_rate, rsu_rate, rsu_num) for i in range(rsu_num)]
 
 
 def init_model_deploy(model_ration, rsu_num, RSUs):
@@ -53,7 +53,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
                     RSUs[rand_rsu_id].remove_model(rand_model_idx, rand_sub_model_idx)
 
 
-def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=200, model_ration=6):
+def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):
     result = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     init_model_deploy(model_ration, rsu_num, RSUs)
