@@ -14,8 +14,16 @@ Sub_Model_Structure_Size = [179.2257156, 49.20232773, 0.00195694, 49.20232773, 2
 model_list_all = ["0-0", "0-1", "0-2", "0-3", "1-0", "1-1", "1-2", "2-0", "2-1", "2-2", "2-3"]
 model_structure_list_all = [i for i in range(len(Sub_Model_Structure_Size))]
 
+
 def get_model_name(model_idx, sub_model_idx):
     return "{}-{}".format(model_idx, sub_model_idx)
+
+
+def get_model_size(model_structure_list):
+    model_structure_size = 0
+    for model_structure_idx in model_structure_list:
+        model_structure_size += Sub_Model_Structure_Size[model_structure_idx]
+    return model_structure_size
 
 
 def get_model_structure(model_idx, model_structure_idx):
