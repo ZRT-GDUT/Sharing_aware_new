@@ -24,7 +24,7 @@ class Algo:
 
     def MA(self, task_list, min_gap=0.1):
         rsu_to_rsu_structure = [[[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]]
-                                 for _ in range(self.rsu_num)] for _ in range(self.rsu_num+1)] #一维是被传输的rsu，二维是输出rsu
+                                 for _ in range(self.rsu_num+1)] for _ in range(self.rsu_num)] #一维是被传输的rsu，二维是输出rsu
         rsu_task_queue = self.generate_rsu_request_queue(None)
         T_max = self.cal_objective_value(rsu_to_rsu_structure, rsu_task_queue, is_Initial=True)
         T = T_max
@@ -32,7 +32,7 @@ class Algo:
         T_min = 0
         obj = T_max
         while T_max - T_min >= min_gap:
-            throughput, objective_value = self.ma()
+            throughput, objective_value = self.ma(rsu_to_rsu_structure)
             if throughput == self.get_all_task_num():
                 T_max = T_max - (T_max - T_min) / 2
                 T = T_max
@@ -54,9 +54,38 @@ class Algo:
                     rsu_request_queue[rsu_idx].append(task)
         return rsu_request_queue
 
-    def generate_new_position_request(self, task):
+    def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, is_Shared=True):
         rsu_request_queue = self.generate_rsu_request_queue(task)
-
+        obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_request_queue)
+        rsu_to_rsu_model_structure_list_new = rsu_to_rsu_model_structure_list
+        for rsu_idx in range(self.rsu_num):# 遍历task在每个rsu上部署的情况
+            not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
+            if self.RSUs[rsu_idx].satisfy_add_task_constraint(task) and \
+                    self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
+                rsu_request_queue[rsu_idx].append(task)
+            else:
+                continue
+            if len(not_added_model_structure) != 0:
+                for model_structure_idx in not_added_model_structure:# 通过greeedy方式获取应从哪些rsu下载model
+                    download_time = 99999
+                    download_time_new = 99999
+                    download_rsu = -1
+                    for other_rsu_idx in range(self.rsu_num + 1):
+                        if other_rsu_idx == rsu_idx:
+                            continue
+                        if model_structure_idx in self.RSUs[other_rsu_idx].model_structure_list:
+                            download_time_new = model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                                (self.RSUs[other_rsu_idx].rsu_rate if other_rsu_idx != self.rsu_num
+                                                 else self.RSUs[rsu_idx].download_rate)
+                        if download_time_new < download_time:
+                            download_time = download_time_new
+                            download_rsu = other_rsu_idx
+                    rsu_to_rsu_model_structure_list_new[rsu_idx][download_rsu][model_structure_idx] = 1
+            obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list_new, rsu_request_queue, is_Initial=False)
+            if obj_value_new < obj_value:
+                obj_value = obj_value_new
+            else:
+                rsu_request_queue[rsu_idx].remove(task)
         pass
 
     def generate_new_position_sub_task(self, sub_task):
@@ -65,13 +94,13 @@ class Algo:
     def move_task(task, new_position):
         pass
 
-    def ma(self):
+    def ma(self, rsu_to_rsu_model_structure_list):
         changed = True
         while changed:
             changed = False
             for rsu_idx in range(self.rsu_num): # 先遍历请求
                 for task in self.RSUs[rsu_idx].task_list:
-                    new_position = self.generate_new_position_request(task)
+                    new_position = self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list)
                     if self.move_task(task, new_position):
                         changed = True
 
@@ -81,11 +110,6 @@ class Algo:
                         new_position = self.generate_new_position_sub_task(sub_task)
                         if self.move_task(sub_task, new_position):
                             changed = True
-
-
-
-
-
 
     def get_all_task_num_all(self):
         task_num = 0
@@ -115,7 +139,10 @@ class Algo:
                             task_model_size = model_util.get_model_sturctures_size(not_added_model_structure)
                         else:
                             task_model_size = model_util.get_model_sturctures_size(sub_task["model_structure"])
-                        download_time += task_model_size / self.RSUs[rsu_idx].download_rate
+                        if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
+                            download_time += task_model_size / self.RSUs[rsu_idx].download_rate
+                        else:
+                            download_time += 999999
                     else:
                         download_time = download_time + 0
                 else:
@@ -135,10 +162,14 @@ class Algo:
                     continue
                 for model_structure_idx in len(model_util.Sub_Model_Structure_Size):
                     if rsu_download_model[rsu_idx_other][model_structure_idx] == 1:
-                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                        if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint([model_structure_idx]):
+                            download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
                                          (self.RSUs[rsu_idx_other].rsu_rate if rsu_idx_other != self.rsu_num
                                           else self.RSUs[rsu_idx].download_rate)
-        singl_obj_value = task_exec_time + download_time
+                        else:
+                            download_time = 999999
+        singl_obj_value = max(task_exec_time + download_time, trans_time)
+        return singl_obj_value
 
 
 
