@@ -9,6 +9,9 @@ import pulp as pl
 
 
 
+
+
+
 class Algo:
     def __init__(self, RSUs: List[device.RSU], task_list):
         self.RSUs = RSUs
@@ -57,8 +60,9 @@ class Algo:
     def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, is_Shared=True):
         rsu_request_queue = self.generate_rsu_request_queue(task)
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_request_queue)
-        rsu_to_rsu_model_structure_list_new = rsu_to_rsu_model_structure_list
+        rsu_idx_task = -1
         for rsu_idx in range(self.rsu_num):# 遍历task在每个rsu上部署的情况
+            rsu_to_rsu_model_structure_list_new = rsu_to_rsu_model_structure_list
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
             if self.RSUs[rsu_idx].satisfy_add_task_constraint(task) and \
                     self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
@@ -84,9 +88,18 @@ class Algo:
             obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list_new, rsu_request_queue, is_Initial=False)
             if obj_value_new < obj_value:
                 obj_value = obj_value_new
+                rsu_to_rsu_model_structure_list_final = rsu_to_rsu_model_structure_list_new
+                rsu_idx_task = rsu_idx
             else:
                 rsu_request_queue[rsu_idx].remove(task)
-        pass
+        return rsu_idx_task, rsu_to_rsu_model_structure_list_final
+
+    def get_download_model_rsu(self,download_rsu_idx, rsu_idx, model_structure_idx):
+        return "{}-{}-{}".format(download_rsu_idx, rsu_idx, model_structure_idx)
+
+    def get_download_model_rsu_info(self, download_model_rsu_info):
+        info = download_model_rsu_info.split("-")
+        return int(info[0]), int(info[1]), int(info[2])
 
     def generate_new_position_sub_task(self, sub_task):
         pass
@@ -100,15 +113,16 @@ class Algo:
             changed = False
             for rsu_idx in range(self.rsu_num): # 先遍历请求
                 for task in self.RSUs[rsu_idx].task_list:
-                    new_position = self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list)
-                    if self.move_task(task, new_position):
+                    new_position, rsu_to_rsu_model_structure_list = \
+                        self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list)
+                    if new_position:
                         changed = True
 
             for rsu_idx in range(self.rsu_num): # 遍历子任务
                 for task in self.RSUs[rsu_idx].task_list:
                     for sub_task in task:
                         new_position = self.generate_new_position_sub_task(sub_task)
-                        if self.move_task(sub_task, new_position):
+                        if new_position:
                             changed = True
 
     def get_all_task_num_all(self):
