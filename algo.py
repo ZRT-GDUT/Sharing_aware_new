@@ -28,14 +28,14 @@ class Algo:
     def MA(self, task_list, min_gap=0.1):
         rsu_to_rsu_structure = [[[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))]]
                                  for _ in range(self.rsu_num+1)] for _ in range(self.rsu_num)] #一维是被传输的rsu，二维是输出rsu
-        rsu_task_queue = self.generate_rsu_request_queue(None)
+        rsu_task_queue = self.generate_rsu_request_queue()
         T_max = self.cal_objective_value(rsu_to_rsu_structure, rsu_task_queue, is_Initial=True)
         T = T_max
         print("T_max:", T_max)
         T_min = 0
         obj = T_max
         while T_max - T_min >= min_gap:
-            throughput, objective_value = self.ma(rsu_to_rsu_structure)
+            throughput, objective_value = self.ma(rsu_to_rsu_structure, rsu_task_queue, T_max)
             if throughput == self.get_all_task_num():
                 T_max = T_max - (T_max - T_min) / 2
                 T = T_max
@@ -47,26 +47,23 @@ class Algo:
                 T = T_max
         return obj
 
-    def generate_rsu_request_queue(self, task_remove):
+    def generate_rsu_request_queue(self):
         rsu_request_queue = [[] for _ in range(self.rsu_num)]
         for rsu_idx in range(self.rsu_num):
             for task in self.RSUs[rsu_idx].task_list:
-                if task == task_remove:
-                    continue
-                else:
-                    rsu_request_queue[rsu_idx].append(task)
+                rsu_request_queue[rsu_idx].append(task)
         return rsu_request_queue
 
-    def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, is_Shared=True):
-        rsu_request_queue = self.generate_rsu_request_queue(task)
-        obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_request_queue)
+    def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max, is_Shared=True):
+        obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_task_queue)
         rsu_idx_task = -1
         for rsu_idx in range(self.rsu_num):# 遍历task在每个rsu上部署的情况
+            self.RSUs[rsu_idx].task_list = rsu_task_queue[rsu_idx]
             rsu_to_rsu_model_structure_list_new = rsu_to_rsu_model_structure_list
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
             if self.RSUs[rsu_idx].satisfy_add_task_constraint(task) and \
                     self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
-                rsu_request_queue[rsu_idx].append(task)
+                rsu_task_queue[rsu_idx].append(task)
             else:
                 continue
             if len(not_added_model_structure) != 0:
@@ -85,14 +82,14 @@ class Algo:
                             download_time = download_time_new
                             download_rsu = other_rsu_idx
                     rsu_to_rsu_model_structure_list_new[rsu_idx][download_rsu][model_structure_idx] = 1
-            obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list_new, rsu_request_queue, is_Initial=False)
-            if obj_value_new < obj_value:
+            obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list_new, rsu_task_queue, is_Initial=False)
+            if obj_value_new < obj_value and obj_value_new < T_max:
                 obj_value = obj_value_new
                 rsu_to_rsu_model_structure_list_final = rsu_to_rsu_model_structure_list_new
                 rsu_idx_task = rsu_idx
             else:
-                rsu_request_queue[rsu_idx].remove(task)
-        return rsu_idx_task, rsu_to_rsu_model_structure_list_final
+                rsu_task_queue[rsu_idx].remove(task)
+        return rsu_idx_task, rsu_to_rsu_model_structure_list_final, rsu_task_queue
 
     def get_download_model_rsu(self,download_rsu_idx, rsu_idx, model_structure_idx):
         return "{}-{}-{}".format(download_rsu_idx, rsu_idx, model_structure_idx)
@@ -107,23 +104,25 @@ class Algo:
     def move_task(task, new_position):
         pass
 
-    def ma(self, rsu_to_rsu_model_structure_list):
+    def ma(self, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max):
         changed = True
         while changed:
             changed = False
             for rsu_idx in range(self.rsu_num): # 先遍历请求
-                for task in self.RSUs[rsu_idx].task_list:
-                    new_position, rsu_to_rsu_model_structure_list = \
-                        self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list)
+                task_list = rsu_task_queue[rsu_idx]
+                for task in task_list:
+                    new_position, rsu_to_rsu_model_structure_list, rsu_task_queue = \
+                        self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max)
                     if new_position:
                         changed = True
-
+            self.allocate_task_for_rsu_later(rsu_task_queue)
             for rsu_idx in range(self.rsu_num): # 遍历子任务
                 for task in self.RSUs[rsu_idx].task_list:
                     for sub_task in task:
                         new_position = self.generate_new_position_sub_task(sub_task)
                         if new_position:
                             changed = True
+
 
     def get_all_task_num_all(self):
         task_num = 0
@@ -191,9 +190,9 @@ class Algo:
     def allocate_model_for_rsu_later(self, rsu_model_list):
         pass
 
-    def allocate_task_for_rsu_later(self, rsu_job_list):
-        for rsu_idx in range(len(rsu_job_list)):
-            self.RSUs[rsu_idx].task_list = rsu_job_list[rsu_idx]
+    def allocate_task_for_rsu_later(self, rsu_task_queue):
+        for rsu_idx in range(len(rsu_task_queue)):
+            self.RSUs[rsu_idx].task_list = rsu_task_queue[rsu_idx]
 
     def clear_rsu_task_list(self):
         for rsu_idx in range(self.rsu_num):
