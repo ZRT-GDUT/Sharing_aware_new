@@ -58,12 +58,21 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
     result = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     init_model_deploy(model_ration, rsu_num, RSUs)
-    for rsu_idx in range(rsu_num):
-        print(RSUs[rsu_idx].model_structure_list)
-    # task_list = google_data_util.process_task(rsu_num)
-    # Algo_new = Algo(RSUs, task_list)
-    # objective_value = Algo_new.MA(task_list)
-    # return objective_value
+    model_download_time_list = {}
+    for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
+        model_download_time = 99999
+        for rsu_idx in range(rsu_num):
+            if model_structure_idx in RSUs[rsu_idx].model_structure_list:
+                model_download_time_current = model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                              RSUs[rsu_idx].rsu_rate
+                if model_download_time_current < model_download_time:
+                    model_download_time = model_download_time_current
+                    model_download_rsu = rsu_idx
+        model_download_time_list[model_structure_idx] = model_download_rsu
+    task_list = google_data_util.process_task(rsu_num)
+    Algo_new = Algo(RSUs, task_list, model_download_time_list)
+    objective_value = Algo_new.MA(task_list)
+    return objective_value
 
 
 def rsu_num_change():
