@@ -186,9 +186,10 @@ class RSU:
         else:
             print("task不在队列中")
 
-    def add_model_structure(self, model_structure):
+    def add_model_structure(self, model_structure_list):
         if self.satisfy_add_model_structure_constraint(model_structure):
-            self.model_structure_list.add(model_structure)
+            for model_structure_idx in model_structure_list:
+                self.model_structure_list.add(model_structure_idx)
             return True
         else:
             return False
