@@ -7,7 +7,7 @@ import device
 import model_util
 import pulp as pl
 
-
+o=8
 class Algo:
     def __init__(self, RSUs: List[device.RSU], task_list, model_download_time_list):
         self.RSUs = RSUs
