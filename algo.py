@@ -7,7 +7,6 @@ import device
 import model_util
 import pulp as pl
 
-o=8
 class Algo:
     def __init__(self, RSUs: List[device.RSU], task_list, model_download_time_list):
         self.RSUs = RSUs
@@ -29,7 +28,7 @@ class Algo:
         #     for sub_task in task_list[job_id]:
         #         rsu_to_rsu_structure[{} - {}.format(job_id, sub_task["sub_model_idx"])] = []
         rsu_task_queue = self.generate_rsu_request_queue()
-        T_max, rsu_to_rsu_model_structure_list = self.cal_objective_value(rsu_to_rsu_structure, rsu_task_queue,
+        T_max, rsu_to_rsu_model_structure_list = self.cal_objective_value(rsu_to_rsu_structur e, rsu_task_queue,
                                                                           is_Initial=True)
         T = T_max
         print("T_max:", T_max)
@@ -58,6 +57,7 @@ class Algo:
     def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max,
                                       is_Shared=True):
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_task_queue, is_Request=True)
+        rsu_task_queue[rsu_id].remove(task)
         rsu_idx_task = rsu_id
         job_id = task[0]["job_id"]
         task_model_structure_list = set()
@@ -65,7 +65,6 @@ class Algo:
             for model_structure_idx in sub_task["model_structure"]:
                 task_model_structure_list.add(model_structure_idx)
         for rsu_idx in range(self.rsu_num):  # 遍历task在每个rsu上部署的情况
-            self.RSUs[rsu_idx].task_list = rsu_task_queue[rsu_idx]
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task_model_structure_list)
             if self.RSUs[rsu_idx].satisfy_add_task_constraint(task) and \
                     self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
@@ -93,6 +92,14 @@ class Algo:
             obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, rsu_task_queue,
                                                      is_Initial=False, is_Request=True)
             if obj_value_new < obj_value and obj_value_new < T_max:
+                self.RSUs[rsu_idx].add_task(task)
+                self.RSUs[rsu_idx_task].remove_task(task)
+                added_models = self.RSUs[rsu_idx_task].has_model_structure(task_model_structure_list)
+                self.RSUs[rsu_idx].model_structure_list.add(added_models)
+                removed_model_list = list(task_model_structure_list)
+                for task_ in self.RSUs[rsu_idx_task].task_list:
+                    for model_off in rsu_to_rsu_model_structure_list[task_]:
+
                 obj_value = obj_value_new
                 rsu_idx_task = rsu_idx
             else:
@@ -103,6 +110,9 @@ class Algo:
             self.RSUs[rsu_idx_task].model_structure_list.add(added_models)
             self.RSUs[rsu_idx_task].add_task(task)
             self.RSUs[rsu_id].remove_task(task)
+            for task_ in self.RSUs[rsu_idx_task].task_list:
+
+
         return rsu_idx_task, rsu_to_rsu_model_structure_list, rsu_task_queue
 
     def generate_new_position_sub_task(self, task, rsu_id, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max,
@@ -176,7 +186,7 @@ class Algo:
                                                            rsu_task_queue, T_max)
                     if new_position != rsu_idx:
                         changed_request = True
-        self.allocate_task_for_rsu_later(rsu_task_queue)
+                    self.allocate_task_for_rsu_later(rsu_task_queue)
         rsu_to_rsu_model_structure_list_sub_task = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
         while changed_sub_task:
             changed_sub_task = False
