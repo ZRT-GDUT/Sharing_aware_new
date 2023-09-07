@@ -50,8 +50,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
                 model_list_all_selected.append(rand_model_name)
                 rsu_model_list[rand_rsu_id].append(rand_model_name)
                 flag = 1
-                for rand_model_structure in rand_model_structure_list:
-                    RSUs[rand_rsu_id].add_model_structure(rand_model_structure)
+                RSUs[rand_rsu_id].add_model_structure(rand_model_structure_list)
 
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):
@@ -76,10 +75,11 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
 
 
 def rsu_num_change():
-    res = []
-    for rsu_num in range(5, 31, 5):
-        res.append(run_algo(rsu_num=rsu_num))
-    print(res)
+    run_algo(rsu_num=5)
+    # res = []
+    # for rsu_num in range(5, 31, 5):
+    #     res.append(run_algo(rsu_num=rsu_num))
+    # print(res)
 
 
 # Press the green button in the gutter to run the script.

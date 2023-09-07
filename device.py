@@ -38,6 +38,7 @@ class RSU:
         self.storage_capacity = random.uniform(300, max_storage)  # to do ...
         # task
         self.task_list = []
+        self.sub_task_list = []
         self.model_structure_list = set()
         self.__caching_model_list = set()  # data: get_model_name(model_idx, sub_model_idx)
         self.task_size = 0
@@ -187,12 +188,9 @@ class RSU:
             print("task不在队列中")
 
     def add_model_structure(self, model_structure_list):
-        if self.satisfy_add_model_structure_constraint(model_structure):
-            for model_structure_idx in model_structure_list:
-                self.model_structure_list.add(model_structure_idx)
-            return True
-        else:
-            return False
+        for model_structure_idx in model_structure_list:
+            self.model_structure_list.add(model_structure_idx)
+
 
     def remove_model_structure(self, model_structure):
         if model_structure in self.model_structure_list:
