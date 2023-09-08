@@ -32,6 +32,7 @@ class Algo:
                                                                           is_Initial=True)
         T = T_max
         print("T_max:", T_max)
+        print(rsu_to_rsu_model_structure_list)
         T_min = 0
         obj = T_max
         # while T_max - T_min >= min_gap:
@@ -180,10 +181,12 @@ class Algo:
 
     def get_download_model_rsu_info(self, download_model_rsu_info):
         info = download_model_rsu_info.split("-")
-        return int(info[0]), int(info[1]), int(info[2])
+        print(info)
+        return int(info[0]), int(info[1]), list(info[2])
 
     def ma(self, rsu_to_rsu_model_structure_list, rsu_task_queue, T_max):
-        changed_sub_task, changed_request = True
+        changed_sub_task = True
+        changed_request = True
         while changed_request:
             changed_request = False
             for rsu_idx in range(self.rsu_num):  # 先遍历请求
@@ -254,13 +257,13 @@ class Algo:
                 task_model_structure_list = set()
                 for model_structure_idx in sub_task["model_structure"]:
                     task_model_structure_list.add(model_structure_idx)
-                sub_task_exec_time = self.RSUs[rsu_idx].latency_list[device_id][sub_task["model_idx"]][
-                    sub_task["sub_model_idx"]][sub_task["seq_num"]]
+                sub_task_exec_time = self.RSUs[rsu_idx].latency_list[sub_task["model_idx"]][
+                    sub_task["sub_model_idx"]][device_id][sub_task["seq_num"]]
                 sub_task_exec_time_list.append(sub_task_exec_time)
-                if is_Shared:
-                    task_exec_time += max(sub_task_exec_time_list)
-                else:
-                    task_exec_time += sum(sub_task_exec_time)
+            if is_Shared:
+                task_exec_time += max(sub_task_exec_time_list)
+            else:
+                task_exec_time += sum(sub_task_exec_time)
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task_model_structure_list)
             if len(not_added_model_structure) != 0:
                 if is_Shared:
@@ -280,7 +283,7 @@ class Algo:
             else:
                 download_model_rsu = self.get_download_model_rsu(self.cloudidx, task[0]["rsu_id"],
                                                                  task_model_structure_list)
-            if len(rsu_download_model[task[0]["job_id"]]) == 0:
+            if rsu_download_model.get(task[0]["job_id"]) is None:
                 rsu_download_model[task[0]["job_id"]] = []
             rsu_download_model[task[0]["job_id"]].append(download_model_rsu)
         singl_obj_value = task_exec_time + download_time
@@ -306,7 +309,7 @@ class Algo:
                         trans_time_current = sub_task_size / self.RSUs[generated_id].rsu_rate
                         trans_time += trans_time_current
                     for sub_task in self.task_list[job_id]:
-                        sub_task_exectime = self.RSUs[rsu_idx].latency_list[device_id][model_idx][sub_task][
+                        sub_task_exectime = self.RSUs[rsu_idx].latency_list[model_idx][sub_task["sub_model_idx"]][device_id][
                             sub_task["seq_num"]]
                         task_exec_time_list[model_idx].append(sub_task_exectime)
                     for download_info in rsu_download_model[job_id]:
@@ -357,6 +360,8 @@ class Algo:
                     download_time += max(download_time_list)
         task_exec_time = 0
         for model_idxs in task_exec_time_list.keys():
+            if len(task_exec_time_list[model_idxs]) == 0:
+                continue
             if is_Shared:
                 task_exec_time += max(task_exec_time_list[model_idxs])
             else:
@@ -385,5 +390,3 @@ class Algo:
         for task in self.task_list:
             rsu_id = task[0]["rsu_id"]
             self.RSUs[rsu_id].task_list.append(task)
-
-            ##xxxx
