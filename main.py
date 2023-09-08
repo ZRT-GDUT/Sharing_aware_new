@@ -60,6 +60,7 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
     model_download_time_list = {}
     for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
         model_download_time = 99999
+        model_download_rsu = -1
         for rsu_idx in range(rsu_num):
             if model_structure_idx in RSUs[rsu_idx].model_structure_list:
                 model_download_time_current = model_util.Sub_Model_Structure_Size[model_structure_idx] / \
@@ -67,7 +68,8 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
                 if model_download_time_current < model_download_time:
                     model_download_time = model_download_time_current
                     model_download_rsu = rsu_idx
-        model_download_time_list[model_structure_idx] = model_download_rsu
+        if model_download_rsu >= 0:
+            model_download_time_list[model_structure_idx] = model_download_rsu
     task_list = google_data_util.process_task(rsu_num)
     Algo_new = Algo(RSUs, task_list, model_download_time_list)
     objective_value = Algo_new.MA(task_list)

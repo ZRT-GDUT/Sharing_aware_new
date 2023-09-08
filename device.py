@@ -176,7 +176,7 @@ class RSU:
 
     def add_task(self, task):
         if self.satisfy_add_task_constraint(task):
-            self.task_list.add(task)
+            self.task_list.append(task)
             return True
         else:
             return False
@@ -213,12 +213,15 @@ class RSU:
         else:
             return True
 
-    def satisfy_add_task_constraint(self, task):
-        model_idx = task["model_idx"]
+    def satisfy_add_task_constraint(self, task, is_Request=True):
+        if is_Request:
+            model_idx = task[0]["model_idx"]
+        else:
+            model_idx = task["model_idx"]
         task_model = model_util.get_model(model_idx)
         task_size = task_model.single_task_size
         if task_size + self.get_total_model_size() + self.get_total_task_size() <= self.storage_capacity:
-            self.task_list.add(task)
+            self.task_list.append(task)
             return True
         else:
             return False
