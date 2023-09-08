@@ -337,7 +337,7 @@ class Algo:
                         task_exec_time_list[model_idx].append(sub_task_exectime)
                     for download_info in rsu_download_model[job_id]:
                         download_rsu_idx, task_rsu_idx, download_models = self.get_download_model_rsu_info(
-                            download_info)
+                            download_info)#6
                         if len(download_models) == 0:
                             download_time_current = 0
                         else:
