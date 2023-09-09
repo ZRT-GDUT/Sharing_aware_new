@@ -175,28 +175,19 @@ class RSU:
         return task_size_total
 
     def add_task(self, task):
-        if self.satisfy_add_task_constraint(task):
-            self.task_list.append(task)
-            return True
-        else:
-            return False
+        self.task_list.append(task)
 
     def remove_task(self, task):
-        if task in self.task_list:
-            self.task_list.remove(task)
-        else:
-            print("task不在队列中")
+        self.task_list.remove(task)
+
 
     def add_model_structure(self, model_structure_list):
         for model_structure_idx in model_structure_list:
             self.model_structure_list.add(model_structure_idx)
 
-
-    def remove_model_structure(self, model_structure):
-        if model_structure in self.model_structure_list:
+    def remove_model_structure(self, model_structure_list):
+        for model_structure in model_structure_list:
             self.model_structure_list.remove(model_structure)
-        else:
-            print(model_structure, "不在缓存列表中")
 
     def get_total_model_size(self):
         model_total_size = 0
