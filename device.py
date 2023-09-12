@@ -11,8 +11,6 @@ import model_util
 class RSU:
     def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=10):
         # transmission rate
-        self.seq_num = [[1 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))]
-        self.cached_model_structure_list = set()
         if download_rate is None:
             self.download_rate = random.uniform(450, 550) / rsu_num  # Mbps
         else:
@@ -40,7 +38,7 @@ class RSU:
         self.task_list = []
         self.sub_task_list = []
         self.model_structure_list = set()
-        self.__caching_model_list = set()  # data: get_model_name(model_idx, sub_model_idx)
+        self.initial_model_structure_list = set()
         self.task_size = 0
         self.latency_list = [
             # model 1
@@ -167,8 +165,12 @@ class RSU:
 
     def get_total_task_size(self):
         task_size_total = 0
+        task_flag_list = set()
         for task in self.task_list:
             model_idx = task[0]["model_idx"]
+            if model_idx in task_flag_list:
+                continue
+            task_flag_list.add(model_idx)
             task_model = model_util.get_model(model_idx)
             task_size = task_model.single_task_size
             task_size_total += task_size
@@ -179,7 +181,6 @@ class RSU:
 
     def remove_task(self, task):
         self.task_list.remove(task)
-
 
     def add_model_structure(self, model_structure_list):
         for model_structure_idx in model_structure_list:

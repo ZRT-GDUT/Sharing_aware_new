@@ -43,19 +43,34 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
             rand_model = model_util.get_model(rand_model_idx)
             rand_model_structure_list = rand_model.require_sub_model_all[rand_sub_model_idx]
             rand_model_structure_size = 0
+            task_model_structure_size = 0
+            task_model_list = set()
+            for task in RSUs[rand_rsu_id].task_list:
+                for sub_task in task:
+                    for model_structure_idx in sub_task["model_structure"]:
+                        task_model_list.add(model_structure_idx)
+            for task_model_structure_idx in task_model_list:
+                task_model_structure_size += model_util.Sub_Model_Structure_Size[task_model_structure_idx]
             for rand_model_structure in rand_model_structure_list:
                 rand_model_structure_size += model_util.Sub_Model_Structure_Size[rand_model_structure]
             if rand_model_name not in rsu_model_list[rand_rsu_id] and rand_model_name not in model_list_all_selected \
-                and rand_model_structure_size + RSUs[rand_rsu_id].get_total_model_size() < RSUs[rand_rsu_id].storage_capacity:
+                and task_model_structure_size + rand_model_structure_size + RSUs[rand_rsu_id].get_total_model_size() + \
+                    RSUs[rand_rsu_id].get_total_task_size() < RSUs[rand_rsu_id].storage_capacity:
                 model_list_all_selected.append(rand_model_name)
                 rsu_model_list[rand_rsu_id].append(rand_model_name)
                 flag = 1
                 RSUs[rand_rsu_id].add_model_structure(rand_model_structure_list)
+    for rsu_idx in range(rsu_num):
+        RSUs[rsu_idx].initial_model_structure_list = RSUs[rsu_idx].model_structure_list
 
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):
     result = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
+    task_list = google_data_util.process_task(rsu_num)
+    for task in task_list:
+        rsu_id = task[0]["rsu_id"]
+        RSUs[rsu_id].add_task(task)
     init_model_deploy(model_ration, rsu_num, RSUs)
     model_download_time_list = {}
     for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
@@ -70,14 +85,14 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
                     model_download_rsu = rsu_idx
         if model_download_rsu >= 0:
             model_download_time_list[model_structure_idx] = model_download_rsu
-    task_list = google_data_util.process_task(rsu_num)
     Algo_new = Algo(RSUs, task_list, model_download_time_list)
     objective_value = Algo_new.MA(task_list)
     return objective_value
 
 
 def rsu_num_change():
-    run_algo(rsu_num=5)
+    result = run_algo(rsu_num=5)
+    print("目标值:", result)
     # res = []
     # for rsu_num in range(5, 31, 5):
     #     res.append(run_algo(rsu_num=rsu_num))
