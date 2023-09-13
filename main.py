@@ -48,11 +48,10 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
             for task in RSUs[rand_rsu_id].task_list:
                 for sub_task in task:
                     for model_structure_idx in sub_task["model_structure"]:
-                        task_model_list.add(model_structure_idx)
-            for task_model_structure_idx in task_model_list:
-                task_model_structure_size += model_util.Sub_Model_Structure_Size[task_model_structure_idx]
-            for rand_model_structure in rand_model_structure_list:
-                rand_model_structure_size += model_util.Sub_Model_Structure_Size[rand_model_structure]
+                        if model_structure_idx not in rand_model_structure_list:
+                            task_model_list.add(model_structure_idx)
+            task_model_structure_size = model_util.get_model_sturctures_size(task_model_list)
+            rand_model_structure_size = model_util.get_model_sturctures_size(rand_model_structure_list)
             if rand_model_name not in rsu_model_list[rand_rsu_id] and rand_model_name not in model_list_all_selected \
                 and task_model_structure_size + rand_model_structure_size + RSUs[rand_rsu_id].get_total_model_size() + \
                     RSUs[rand_rsu_id].get_total_task_size() < RSUs[rand_rsu_id].storage_capacity:

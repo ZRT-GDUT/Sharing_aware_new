@@ -197,6 +197,7 @@ class RSU:
         return model_total_size
 
     def satisfy_add_model_structure_constraint(self, model_structure_list):
+
         model_total_size = self.get_total_model_size()
         task_total_size = self.get_total_task_size()
         add_model_size = model_util.get_model_sturctures_size(model_structure_list)
@@ -224,6 +225,13 @@ class RSU:
             if model_structure_idx not in self.model_structure_list:
                 not_added_model.add(model_structure_idx)
         return not_added_model
+
+    def has_model_structure_initial(self, model_structure_list):
+        not_added_model_initial = set()
+        for model_structure_idx in model_structure_list:
+            if model_structure_idx not in self.initial_model_structure_list:
+                not_added_model_initial.add(model_structure_idx)
+        return not_added_model_initial
 
     def get_device_id(self, device_id, is_gpu=False, gpu_num=2):
         if is_gpu:

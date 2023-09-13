@@ -70,7 +70,7 @@ def get_request_type(sub_model_num, max_k=4):  # 随机生成任务需要用到�
     return res
 
 
-def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> List[dict]:  # 任务里面有哪些属性
+def process_task(rsu_num, filename=1, max_sub_task_num=10, max_latency=50) -> List[dict]:  # 任务里面有哪些属性
     # df = pd.read_csv(filename)
     task_lists = [[] for _ in range(filename)]
     for job_idx in range(filename):  # 遍历每一行数据
@@ -89,7 +89,7 @@ def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> Li
             info["model_structure"] = model_util.get_model(info["model_idx"]).require_sub_model_all[sub_task]
             info["position"] = info["rsu_id"]
             task_lists[job_idx].append(info)
-    print(task_lists[0])
+    print(task_lists)
     return task_lists
 
 
