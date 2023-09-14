@@ -206,10 +206,9 @@ class RSU:
             model_total_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
         return model_total_size
 
-    def satisfy_add_model_structure_constraint(self, model_structure_list):
-
+    def satisfy_add_model_structure_constraint(self, model_structure_list, is_Request=True):
         model_total_size = self.get_total_model_size()
-        task_total_size = self.get_total_task_size()
+        task_total_size = self.get_total_task_size(is_Request)
         add_model_size = model_util.get_model_sturctures_size(model_structure_list)
         if task_total_size + add_model_size + model_total_size > self.storage_capacity:
             return False
@@ -224,7 +223,6 @@ class RSU:
         task_model = model_util.get_model(model_idx)
         task_size = task_model.single_task_size
         if task_size + self.get_total_model_size() + self.get_total_task_size(is_Request) <= self.storage_capacity:
-            self.task_list.append(task)
             return True
         else:
             return False
