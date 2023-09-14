@@ -61,6 +61,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
                 RSUs[rand_rsu_id].add_model_structure(rand_model_structure_list)
     for rsu_idx in range(rsu_num):
         RSUs[rsu_idx].initial_model_structure_list = RSUs[rsu_idx].model_structure_list.copy()
+        print(RSUs[rsu_idx].initial_model_structure_list)
 
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):

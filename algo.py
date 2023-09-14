@@ -130,10 +130,6 @@ class Algo:
                         if len(inter_model) != 0:
                             for removed_model_idxs in inter_model:
                                 removed_model_list.remove(removed_model_idxs)
-                print(task)
-                print(rsu_idx_task, self.RSUs[rsu_idx_task].initial_model_structure_list)
-                print(task_model_structure_list, removed_model_list)
-                print(self.RSUs[rsu_idx_task].model_structure_list)
                 self.RSUs[rsu_idx_task].remove_model_structure(removed_model_list)  # ??
                 obj_value = obj_value_new
                 for i in range(len(task)):
@@ -317,8 +313,8 @@ class Algo:
         download_time = 0
         for task in self.RSUs[rsu_idx].task_list:
             sub_task_exec_time_list = []
+            task_model_structure_list = set()
             for sub_task in task:
-                task_model_structure_list = set()
                 for model_structure_idx in sub_task["model_structure"]:
                     task_model_structure_list.add(model_structure_idx)
                 sub_task_exec_time = self.RSUs[rsu_idx].latency_list[sub_task["model_idx"]][
@@ -340,9 +336,9 @@ class Algo:
                                                                      task_model_structure_list)
                 if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
                     download_time += task_model_size / self.RSUs[rsu_idx].download_rate
-                    self.RSUs[rsu_idx].add_model_structure(not_added_model_structure)
                 else:
                     download_time += 999999
+                self.RSUs[rsu_idx].add_model_structure(not_added_model_structure)
             else:
                 download_time += 0
                 download_model_rsu = self.get_download_model_rsu(rsu_idx, rsu_idx, [])
