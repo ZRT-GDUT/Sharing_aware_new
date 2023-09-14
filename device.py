@@ -163,17 +163,27 @@ class RSU:
             ]
         ]
 
-    def get_total_task_size(self):
+    def get_total_task_size(self, is_Request=True):
         task_size_total = 0
         task_flag_list = set()
-        for task in self.task_list:
-            model_idx = task[0]["model_idx"]
-            if model_idx in task_flag_list:
-                continue
-            task_flag_list.add(model_idx)
-            task_model = model_util.get_model(model_idx)
-            task_size = task_model.single_task_size
-            task_size_total += task_size
+        if is_Request:
+            for task in self.task_list:
+                model_idx = task[0]["model_idx"]
+                if model_idx in task_flag_list:
+                    continue
+                task_flag_list.add(model_idx)
+                task_model = model_util.get_model(model_idx)
+                task_size = task_model.single_task_size
+                task_size_total += task_size
+        else:
+            for task in self.sub_task_list:
+                model_idx = task["model_idx"]
+                if model_idx in task_flag_list:
+                    continue
+                task_flag_list.add(model_idx)
+                task_model = model_util.get_model(model_idx)
+                task_size = task_model.single_task_size
+                task_size_total += task_size
         return task_size_total
 
     def add_task(self, task):
@@ -213,7 +223,7 @@ class RSU:
             model_idx = task["model_idx"]
         task_model = model_util.get_model(model_idx)
         task_size = task_model.single_task_size
-        if task_size + self.get_total_model_size() + self.get_total_task_size() <= self.storage_capacity:
+        if task_size + self.get_total_model_size() + self.get_total_task_size(is_Request) <= self.storage_capacity:
             self.task_list.append(task)
             return True
         else:

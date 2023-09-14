@@ -60,9 +60,9 @@ class Algo:
                 rsu_request_queue[rsu_idx].append(task)
         return rsu_request_queue
 
-    def generate_new_position_request(self, task, rsu_id, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
+    def generate_new_position_request(self, task, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Request=True)
-        rsu_idx_task = rsu_id
+        rsu_idx_task = task[0]['position']
         job_id = task[0]["job_id"]
         task_model_structure_list = set()
         for sub_task in task:
@@ -126,32 +126,37 @@ class Algo:
                         set_download_model_ = set(download_model_)
                         inter_model = set_download_model_.intersection(removed_model_list)
                         if len(inter_model) != 0:
-                            for removed_model_idx in inter_model:
-                                removed_model_list.remove(removed_model_idx)
+                            for removed_model_idxs in inter_model:
+                                removed_model_list.remove(removed_model_idxs)
+                print(rsu_to_rsu_model_structure_list)
+                print(self.RSUs[rsu_idx_task].task_list)
                 self.RSUs[rsu_idx_task].remove_model_structure(removed_model_list)  # ??
                 obj_value = obj_value_new
+                task[0]["position"] = rsu_idx
                 rsu_idx_task = rsu_idx
             else:
                 self.RSUs[rsu_idx].remove_task(task)
                 self.RSUs[rsu_idx_task].add_task(task)
                 rsu_to_rsu_model_structure_list[job_id] = download_model_rsu_info_list_before
-        print(rsu_idx_task, obj_value)
-        return rsu_idx_task, rsu_to_rsu_model_structure_list
+        print(obj_value)
+        return rsu_to_rsu_model_structure_list
 
-    def generate_new_position_sub_task(self, task, rsu_id, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
+    def generate_new_position_sub_task(self, task, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Request=False)
-        rsu_idx_task = rsu_id
+        rsu_idx_task = task["position"]
         job_id = task["job_id"]
-        sub_task_id = task["sub_task_id"]
-        sub_task_key = {}-{}.format(job_id, sub_task_id)
+        sub_task_id = task["sub_model_idx"]
+        sub_task_key = "{}-{}".format(job_id, sub_task_id)
         for rsu_idx in range(self.rsu_num):  # 遍历task在每个rsu上部署的情况
-            if rsu_idx == rsu_id:
-                continue
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
-            not_added_model_structure_initial = self.RSUsp[rsu_idx].has_model_structure_initial(task["model_structure"])
-            if self.RSUs[rsu_idx].satisfy_add_task_constraint(task, is_Request=False) and \
-                    self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
+            not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(task["model_structure"])
+            if self.RSUs[rsu_idx].satisfy_add_task_constraint(task, is_Request=False):
                 self.RSUs[rsu_idx].sub_task_list.append(task)
+                if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
+                    self.RSUs[rsu_idx_task].sub_task_list.remove(task)
+                else:
+                    self.RSUs[rsu_idx].sub_task_list.remove(task)
+                    continue
             else:
                 continue
             if len(not_added_model_structure_initial) != 0:
@@ -188,13 +193,13 @@ class Algo:
                 rsu_to_rsu_model_structure_list[sub_task_key].append(download_model_rsu_info)
             obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Initial=False, is_Request=False)
             if obj_value_new < obj_value and obj_value_new < T_max:
-                self.RSUs[rsu_idx_task].sub_task_list.remove(task)
                 self.RSUs[rsu_idx].add_model_structure(task["model_structure"])
                 removed_model_list = set()
                 for removed_model_off in download_model_rsu_info_list_before:
                     _, _, removed_models = self.get_download_model_rsu_info(removed_model_off)
                     for removed_model_idx in removed_models:
-                        removed_model_list.add(removed_model_idx)
+                        if removed_model_idx not in self.RSUs[rsu_idx_task].initial_model_structure_list:
+                            removed_model_list.add(removed_model_idx)
                 for task_ in self.RSUs[rsu_idx_task].sub_task_list:
                     sub_task_key_ = {}-{}.format(task_["job_id"], task_["sub_model_idx"])
                     for model_off in rsu_to_rsu_model_structure_list[sub_task_key_]:
@@ -202,18 +207,16 @@ class Algo:
                         set_download_model_ = set(download_model_)
                         inter_model = set_download_model_.intersection(removed_model_list)
                         if len(inter_model) != 0:
-                            for removed_model_idx in inter_model:
-                                removed_model_list.remove(removed_model_idx)
-                        for removed_model_idxs in removed_model_list:
-                            if removed_model_idxs in self.RSUs[rsu_idx_task].initial_model_structure_list:
+                            for removed_model_idxs in inter_model:
                                 removed_model_list.remove(removed_model_idxs)
                 self.RSUs[rsu_idx_task].remove_model_structure(removed_model_list)
                 obj_value = obj_value_new
+                task['position'] = rsu_idx
                 rsu_idx_task = rsu_idx
             else:
                 self.RSUs[rsu_idx].sub_task_list.remove(task)
                 rsu_to_rsu_model_structure_list[sub_task_key] = download_model_rsu_info_list_before
-        return rsu_idx_task, rsu_to_rsu_model_structure_list
+        return rsu_to_rsu_model_structure_list
 
     def get_download_model_rsu(self, download_rsu_idx, rsu_idx, model_structure_list):
         return "{}-{}-{}".format(download_rsu_idx, rsu_idx, model_structure_list)
@@ -229,28 +232,29 @@ class Algo:
         changed_request = True
         while changed_request:
             changed_request = False
-            for rsu_idx in range(self.rsu_num):  # 先遍历请求
-                task_list = self.RSUs[rsu_idx].task_list
-                print(6)
-                for task in task_list:
-                    new_position, rsu_to_rsu_model_structure_list = \
-                        self.generate_new_position_request(task, rsu_idx, rsu_to_rsu_model_structure_list, T_max)
-                    if new_position != rsu_idx:
-                        changed_request = True
-
+            for task in self.task_list:
+                old_position = task[0]["position"]
+                rsu_to_rsu_model_structure_list = \
+                    self.generate_new_position_request(task, rsu_to_rsu_model_structure_list, T_max)
+                if old_position != task[0]['position']:
+                    changed_request = True
+        for task in self.task_list:
+            for sub_task in task:
+                sub_task["position"] = task[0]["position"]
         rsu_to_rsu_model_structure_list_sub_task = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
+        print(rsu_to_rsu_model_structure_list)
         print(rsu_to_rsu_model_structure_list_sub_task)
         self.allocate_sub_task_for_rsu()
         while changed_sub_task:
             changed_sub_task = False
-            for rsu_idxs in range(self.rsu_num):  # 遍历子任务
-                sub_task_list = self.RSUs[rsu_idxs].sub_task_list
-                for sub_task in sub_task_list:
-                    self.RSUs[rsu_idxs].sub_task_list.remove(sub_task)
-                    new_position, rsu_to_rsu_model_structure_list = self.generate_new_position_sub_task(sub_task, rsu_idxs, rsu_to_rsu_model_structure_list_sub_task, T_max)
-                    if new_position != rsu_idxs:
+            for task in self.task_list:  # 遍历子任务
+                for sub_task in task:
+                    old_position_sub = sub_task['position']
+                    rsu_to_rsu_model_structure_list_sub_task = self.generate_new_position_sub_task(
+                        sub_task, rsu_to_rsu_model_structure_list_sub_task, T_max)
+                    if sub_task['position'] != old_position_sub:
                         changed_sub_task = True
-        obj = self.cal_objective_value(rsu_to_rsu_model_structure_list)
+        obj = self.cal_objective_value(rsu_to_rsu_model_structure_list_sub_task)
         return obj
 
     def trans_request_to_sub_task(self, rsu_to_rsu_model_structure_list):
@@ -258,16 +262,15 @@ class Algo:
         for job_id in rsu_to_rsu_model_structure_list.keys():
             for sub_task in self.task_list[job_id]:
                 sub_task_id = sub_task["sub_model_idx"]
+                key = "{}-{}".format(job_id, sub_task_id)
                 for download_info in rsu_to_rsu_model_structure_list[job_id]:
                     download_rsu_idx, task_rsu_idx, download_models = self.get_download_model_rsu_info(download_info)
                     inter_model = set(sub_task["model_structure"]).intersection(set(download_models))
                     if len(inter_model) != 0:
                         download_info_ = self.get_download_model_rsu(download_rsu_idx, task_rsu_idx, inter_model)
-                        if rsu_to_rsu_model_structure_list_sub_task.get({}-{}.format(job_id, sub_task_id)) is None:
-                            rsu_to_rsu_model_structure_list_sub_task[{}-{}.format(job_id, sub_task_id)] = []
-                        rsu_to_rsu_model_structure_list_sub_task[{}-{}.format(job_id, sub_task_id)].append(
-                            download_info_)
-
+                        if rsu_to_rsu_model_structure_list_sub_task.get(key) is None:
+                            rsu_to_rsu_model_structure_list_sub_task[key] = []
+                        rsu_to_rsu_model_structure_list_sub_task[key].append(download_info_)
         return rsu_to_rsu_model_structure_list_sub_task
 
     def get_all_task_num_all(self):
@@ -384,8 +387,8 @@ class Algo:
                         download_time_list[download_rsu_idx].append(download_time_current)
         else:
             for sub_task_id in rsu_download_model.keys():
-                job_id, sub_task = sub_task_id.split("-")
-                generated_id = self.task_list[job_id][sub_task]["rsu_id"]
+                sub_key = sub_task_id.split("-")
+                generated_id = self.task_list[int(sub_key[0])][int(sub_key[1])]["rsu_id"]
                 model_idx = self.task_list[job_id][sub_task]["model_idx"]
                 value = rsu_download_model[sub_task_id][0]
                 trans_rsu_idx, task_rsu_idx, _ = self.get_download_model_rsu_info(value)
