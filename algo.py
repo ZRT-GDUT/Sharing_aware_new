@@ -509,7 +509,7 @@ class Algo:
             else:
                 task_exec_time += sum(task_exec_time_list[model_idxs])
         for download_rsu_idxs in download_time_list.keys():
-            download_time += max(download_time_list[download_rsu_idxs])
+            download_time += sum(download_time_list[download_rsu_idxs])
         obj_value = trans_time + download_time + task_exec_time
         return obj_value
 
