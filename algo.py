@@ -78,15 +78,42 @@ class Algo:
                 continue
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task_model_structure_list)
             not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(task_model_structure_list)
-            if self.RSUs[rsu_idx].satisfy_add_task_constraint(task):
-                self.RSUs[rsu_idx].add_task(task)
-                if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
-                    self.RSUs[rsu_idx_task].remove_task(task)
+            generated_id = task[0]["rsu_id"]
+            model_idx = task[0]["model_idx"]
+            model = model_util.get_model(model_idx)
+            task_size = model.single_task_size
+            offload_time = 0
+            download_time = 0
+            exec_time_list = []
+            device_id = self.RSUs[rsu_idx].device_idx
+            latency_requirement = task[0]["latency"]
+            if generated_id != rsu_idx:
+                offload_time = task_size / self.RSUs[generated_id].rsu_rate
+            for model_structure_idx in not_added_model_structure_initial:  # 通过greeedy方式获取应从哪些rsu下载model
+                if self.model_download_time_list.get(model_structure_idx) is not None:
+                    if self.RSUs[rsu_idx].download_rate > self.RSUs[
+                        self.model_download_time_list[model_structure_idx]].rsu_rate:
+                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                         self.RSUs[rsu_idx].download_rate
+                    else:
+                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                         self.RSUs[self.model_download_time_list[model_structure_idx]].rsu_rate
+            for sub_task_exec in task:
+                sub_model_idx = sub_task_exec["sub_model_idx"]
+                seq_num = sub_task_exec["seq_num"]
+                exec_time_ = self.RSUs[rsu_idx].latency_list[model_idx][sub_model_idx][device_id][seq_num]
+                exec_time_list.append(exec_time_)
+            exec_time = max(exec_time_list)
+            if exec_time + download_time + offload_time <= latency_requirement:
+                if self.RSUs[rsu_idx].satisfy_add_task_constraint(task):
+                    self.RSUs[rsu_idx].add_task(task)
+                    if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure):
+                        self.RSUs[rsu_idx_task].remove_task(task)
+                    else:
+                        self.RSUs[rsu_idx].remove_task(task)
+                        continue
                 else:
-                    self.RSUs[rsu_idx].remove_task(task)
                     continue
-            else:
-                continue
             if len(not_added_model_structure_initial) != 0:
                 download_model_rsu_info_list = []
                 download_model_rsu_list = {}
@@ -158,15 +185,40 @@ class Algo:
                 continue
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
             not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(task["model_structure"])
-            if self.RSUs[rsu_idx].satisfy_add_task_constraint(task, is_Request=False):
-                self.RSUs[rsu_idx].sub_task_list.append(task)
-                if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure, is_Request=False):
-                    self.RSUs[rsu_idx_task].sub_task_list.remove(task)
+            generated_id = task["rsu_id"]
+            model_idx = task["model_idx"]
+            model = model_util.get_model(model_idx)
+            task_size = model.single_task_size
+            offload_time = 0
+            download_time = 0
+            exec_time_list = []
+            device_id = self.RSUs[rsu_idx].device_idx
+            latency_requirement = task["latency"]
+            sub_model_idx = task["sub_model_idx"]
+            seq_num = task["seq_num"]
+            exec_time = self.RSUs[rsu_idx].latency_list[model_idx][sub_model_idx][device_id][seq_num]
+            if generated_id != rsu_idx:
+                offload_time = task_size / self.RSUs[generated_id].rsu_rate
+            for model_structure_idx in not_added_model_structure_initial:  # 通过greeedy方式获取应从哪些rsu下载model
+                if self.model_download_time_list.get(model_structure_idx) is not None:
+                    if self.RSUs[rsu_idx].download_rate > self.RSUs[
+                        self.model_download_time_list[model_structure_idx]].rsu_rate:
+                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                         self.RSUs[rsu_idx].download_rate
+                    else:
+                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                         self.RSUs[self.model_download_time_list[model_structure_idx]].rsu_rate
+            if exec_time + download_time + offload_time <= latency_requirement:
+                if self.RSUs[rsu_idx].satisfy_add_task_constraint(task, is_Request=False):
+                    self.RSUs[rsu_idx].sub_task_list.append(task)
+                    if self.RSUs[rsu_idx].satisfy_add_model_structure_constraint(not_added_model_structure,
+                                                                                 is_Request=False):
+                        self.RSUs[rsu_idx_task].sub_task_list.remove(task)
+                    else:
+                        self.RSUs[rsu_idx].sub_task_list.remove(task)
+                        continue
                 else:
-                    self.RSUs[rsu_idx].sub_task_list.remove(task)
                     continue
-            else:
-                continue
             if len(not_added_model_structure_initial) != 0:
                 download_model_rsu_info_list = []
                 download_model_rsu_list = {}
