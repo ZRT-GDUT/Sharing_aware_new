@@ -385,7 +385,7 @@ class Algo:
             if is_Shared:
                 task_exec_time += max(sub_task_exec_time_list)
             else:
-                task_exec_time += sum(sub_task_exec_time)
+                task_exec_time += sum(sub_task_exec_time_list)
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task_model_structure_list)
             if len(not_added_model_structure) != 0:
                 if is_Shared:

@@ -63,7 +63,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
         RSUs[rsu_idx].initial_model_structure_list = RSUs[rsu_idx].model_structure_list.copy()
 
 
-def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):
+def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=5, max_storage=1200, model_ration=6):
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     task_list = google_data_util.process_task(rsu_num)
     for task in task_list:
@@ -91,12 +91,26 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
 def rsu_num_change():
     res = []
     for rsu_num in range(5, 31, 5):
-        res.append(run_algo(rsu_num=5))
+        res.append(run_algo(rsu_num=rsu_num))
+    print(res)
+
+def model_num_change():
+    res = []
+    for model_num in range(1, 11, 2):
+        res.append(run_algo(model_ration=model_num))
+    print(res)
+
+def download_change():
+    res = []
+    for download_rate in range(450, 550, 20):
+        res.append(run_algo(download_rate=download_rate))
     print(res)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     rsu_num_change()
+    model_num_change()
+    download_change()
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
