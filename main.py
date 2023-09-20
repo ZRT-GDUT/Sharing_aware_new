@@ -61,11 +61,9 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
                 RSUs[rand_rsu_id].add_model_structure(rand_model_structure_list)
     for rsu_idx in range(rsu_num):
         RSUs[rsu_idx].initial_model_structure_list = RSUs[rsu_idx].model_structure_list.copy()
-        print(RSUs[rsu_idx].initial_model_structure_list)
 
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max_storage=1200, model_ration=6):
-    result = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
     task_list = google_data_util.process_task(rsu_num)
     for task in task_list:
@@ -91,12 +89,10 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=20, max
 
 
 def rsu_num_change():
-    result = run_algo(rsu_num=5)
-    print("目标值:", result)
-    # res = []
-    # for rsu_num in range(5, 31, 5):
-    #     res.append(run_algo(rsu_num=rsu_num))
-    # print(res)
+    res = []
+    for rsu_num in range(5, 31, 5):
+        res.append(run_algo(rsu_num=5))
+    print(res)
 
 
 # Press the green button in the gutter to run the script.
