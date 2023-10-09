@@ -1,11 +1,15 @@
 import random
+import sys
 from typing import List
 
 from pulp import LpStatusInfeasible
+from tqdm import tqdm
 
+import DQN
 import device
 import model_util
 import pulp as pl
+import numpy as np
 
 
 class Algo:
@@ -535,3 +539,88 @@ class Algo:
         for task in self.task_list:
             rsu_id = task[0]["rsu_id"]
             self.RSUs[rsu_id].task_list.append(task)
+
+    # ------------------------------------------------------------------------------
+    #                DQN algorithm
+    # ------------------------------------------------------------------------------
+
+    def dqn(self, task_list: List[dict], shared=False, num_epoch=500, random_init=False):
+
+        def employ_action(action_value, rsu_model_queue):
+            action_value = int(action_value)
+            src_rsu_id = int(action_value / ((self.rsu_num) * len(model_util.Sub_Model_Structure_Size)))
+            des_rsu_id = int(action_value / ((self.rsu_num+1) * len(model_util.Sub_Model_Structure_Size)))
+            model_id = int(action_value / (self.rsu_num * (self.rsu_num + 1)))
+            if model_id not in self.RSUs[src_rsu_id].initial_model_structure_list or \
+                    model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
+                download_time = -10000
+            else:
+                download_time = -(model_util.Sub_Model_Structure_Size[model_id] / (self.RSUs[src_rsu_id].rsu_rate if
+                                  src_rsu_id != self.rsu_num else self.RSUs[des_rsu_id].download_rate))
+                rsu_model_queue[des_rsu_id][model_id] = 1
+            return download_time, rsu_model_queue
+
+        def get_observation(rsu_model_queue) -> list:
+            obs = [0 for _ in range((self.rsu_num+1)*len(model_util.Sub_Model_Structure_Size))]
+            for rsu_idx in range(len(rsu_model_queue)):
+                for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
+                    idx = rsu_idx * len(model_util.Sub_Model_Structure_Size) - 1 + model_structure_idx
+                    obs[idx] = rsu_model_queue[rsu_idx][model_structure_idx]
+            return obs
+
+        num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
+        num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
+        DRL = DQN.DQN(num_state, num_action)
+        best_optimal = sys.maxsize
+        train_base = 3.0
+        train_bais = 30.0
+        REWARDS = []
+        LOSS = []
+        OPT_RESULT = []
+        for epoch in tqdm(range(num_epoch), desc="dqn"):
+            rsu_model_queue = self.generate_rsu_model_queue()
+            observation = get_observation(rsu_model_queue)
+            total_reward = 0
+            for _ in range(500):
+                action_value = DRL.choose_action(observation)
+                if action_value == num_state - 1:
+                    # print("DRL think this state is the optimal, thus break..")
+                    DRL.store_transition(observation, action_value, 0, observation)
+                    break
+                observation = get_observation(rsu_model_queue)
+                # employ action .....
+                reward, rsu_model_queue = employ_action(action_value, rsu_model_queue)
+                observation_ = get_observation(rsu_model_queue)
+                total_reward += reward
+                DRL.store_transition(observation, action_value, reward, observation_)
+                observation = observation_
+            REWARDS.append(total_reward)
+            OPT_RESULT.append(best_optimal)
+            # print("objective_value: {}".format(best_optimal))
+            if epoch >= train_bais and epoch % train_base == 0:
+                # print("DRL is learning......")
+                loss = DRL.learn()
+                LOSS.append(float(loss))
+            if epoch % 50 == 0:
+                # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
+                pass
+        # plt.plot(LOSS)
+        # plt.title("loss curve......")
+        # plt.show()
+        # plt.plot(OPT_RESULT)
+        # plt.title("best_optimal")
+        # plt.ylabel("objective, minimal is better.")
+        # plt.show()
+        with open("loss.txt", "w+") as f:
+            f.write("reward: {}\n".format(REWARDS))
+            f.write("loss: {}\n".format(LOSS))
+        return best_optimal
+
+    def generate_rsu_model_queue(self):
+        rsu_model_queue = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(self.rsu_num+1)]
+        for rsu_idx in range(self.rsu_num):
+            for model_structure_idx in self.RSUs[rsu_idx].initial_model_structure_list:
+                rsu_model_queue[rsu_idx][model_structure_idx] = 1
+        for model_structure_idxs in range(len(model_util.Sub_Model_Structure_Size)):
+            rsu_model_queue[self.rsu_num][model_structure_idxs] = 1
+        return rsu_model_queue
