@@ -544,20 +544,26 @@ class Algo:
     #                DQN algorithm
     # ------------------------------------------------------------------------------
 
-    def dqn(self, task_list: List[dict], shared=False, num_epoch=500, random_init=False):
+    def dqn(self, num_epoch=500):
 
         def employ_action(action_value, rsu_model_queue):
             action_value = int(action_value)
             src_rsu_id = int(action_value / ((self.rsu_num) * len(model_util.Sub_Model_Structure_Size)))
             des_rsu_id = int(action_value / ((self.rsu_num+1) * len(model_util.Sub_Model_Structure_Size)))
             model_id = int(action_value / (self.rsu_num * (self.rsu_num + 1)))
-            if model_id not in self.RSUs[src_rsu_id].initial_model_structure_list or \
-                    model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
-                download_time = -10000
+            if src_rsu_id != self.rsu_num:
+                if model_id not in self.RSUs[src_rsu_id].initial_model_structure_list or \
+                        model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
+                    download_time = -10000
+                else:
+                    rsu_model_queue[des_rsu_id][model_id] = 1
+                    download_time = -(model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[src_rsu_id].rsu_rate)
             else:
-                download_time = -(model_util.Sub_Model_Structure_Size[model_id] / (self.RSUs[src_rsu_id].rsu_rate if
-                                  src_rsu_id != self.rsu_num else self.RSUs[des_rsu_id].download_rate))
-                rsu_model_queue[des_rsu_id][model_id] = 1
+                if model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
+                    download_time = -10000
+                else:
+                    rsu_model_queue[des_rsu_id][model_id] = 1
+                    download_time = -(model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[des_rsu_id].download_rate)
             return download_time, rsu_model_queue
 
         def get_observation(rsu_model_queue) -> list:

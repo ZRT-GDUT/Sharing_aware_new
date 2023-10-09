@@ -84,15 +84,17 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=5, max_
         if model_download_rsu >= 0:
             model_download_time_list[model_structure_idx] = model_download_rsu
     Algo_new = Algo(RSUs, task_list, model_download_time_list)
-    objective_value = Algo_new.MA(task_list)
-    return objective_value
+    Algo_new.dqn()
+    # objective_value = Algo_new.MA(task_list)
+    # return objective_value
 
 
 def rsu_num_change():
-    res = []
-    for rsu_num in range(5, 31, 5):
-        res.append(run_algo(rsu_num=rsu_num))
-    print(res)
+    run_algo(rsu_num=5)
+    # res = []
+    # for rsu_num in range(5, 31, 5):
+    #     res.append(run_algo(rsu_num=rsu_num))
+    # print(res)
 
 def model_num_change():
     res = []
@@ -110,7 +112,7 @@ def download_change():
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     rsu_num_change()
-    model_num_change()
-    download_change()
+    # model_num_change()
+    # download_change()
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
