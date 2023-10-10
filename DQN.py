@@ -41,12 +41,17 @@ class DQN:
         self.loss_func = nn.MSELoss()
         self.episilo = episilo
 
-    def choose_action(self, state):
+    def choose_action(self, state, finished = False):
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
         if np.random.randn() <= self.episilo:
             action_value = self.eval_net.forward(state)
+            if finished:
+                return action_value
             action = torch.max(action_value, 1)[1].data.numpy()
         else:
+            action_value = self.eval_net.forward(state)
+            if finished:
+                return action_value
             action = np.random.randint(0, self.num_action)
         return action
 
