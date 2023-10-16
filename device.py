@@ -213,6 +213,8 @@ class RSU:
         model_total_size = self.get_total_model_size()
         task_total_size = self.get_total_task_size(is_Request)
         add_model_size = model_util.get_model_sturctures_size(model_structure_list)
+        if len(model_structure_list) == 0:
+            return True
         if task_total_size + add_model_size + model_total_size > self.storage_capacity:
             return False
         else:

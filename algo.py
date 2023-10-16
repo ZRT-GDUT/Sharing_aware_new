@@ -579,6 +579,7 @@ class Algo:
         def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
             _, observations = self.cal_objective_value(rsu_to_rsu_model_structure_list)
             return observations
+
         def employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub, DRL_model):
             # 更新策略
             # 0: 完成修改
@@ -603,8 +604,8 @@ class Algo:
             model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key]
             src_rsu, des_rsu, model_list = self.get_download_model_rsu_info(model_policy)
             # print("task_id: {}, rsu_id: {}".format(task_id, rsu_id))
-            if src_rsu == rsu_id:
-                return 2
+            if des_rsu == rsu_id:
+                return 2, rsu_to_rsu_model_structure_list_sub
             change_after = []
             for model_structure_idx in model_list:
                 if rsu_model_queue[des_rsu][model_structure_idx] == 1:
@@ -620,9 +621,10 @@ class Algo:
             rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list
+                self.RSUs[rsu_idx].sub_task_list = []
             if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub):
-                return 0
-            return 1
+                return 0, rsu_to_rsu_model_structure_list_sub
+            return 1, rsu_to_rsu_model_structure_list_sub
 
         num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
         num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
@@ -681,11 +683,11 @@ class Algo:
                     task_model.store_transition(observation, action_value, 0, observation)
                     break
                 # employ action .....
-                flag = employ_action_task(rsu_to_rsu_model_structure_list_sub)
+                flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(rsu_to_rsu_model_structure_list_sub)
                 if flag == 2:
                     continue
                 observation_ = get_observation_task(rsu_to_rsu_model_structure_list_sub)
-                reward = max(observation_) - max(observation)
+                reward = -max(observation_)
                 total_reward += reward
                 if flag == 1:
                     reward = -100000
@@ -718,7 +720,49 @@ class Algo:
         return best_optimal
 
     def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub):
-        pass
+        for task_id in rsu_to_rsu_model_structure_list_sub.keys():
+            sub_key = task_id.split("-")
+            job_id = int(sub_key[0])
+            sub_task_id = int(sub_key[1])
+            sub_task = self.task_list[job_id][sub_task_id]
+            seq_num = sub_task["seq_num"]
+            model_idx = sub_task["model_idx"]
+            sub_model_idx = sub_task["sub_model_idx"]
+            generated_id = sub_task["rsu_id"]
+            model = model_util.get_model(self.task_list[job_id][0]["model_idx"])
+            task_size = model.single_task_size
+            policy_list = rsu_to_rsu_model_structure_list_sub[task_id]
+            _, des_rsu, _ = self.get_download_model_rsu_info(policy_list[0])
+            device_id = self.RSUs[des_rsu].device_idx
+            exec_time = self.RSUs[des_rsu].latency_list[model_idx][sub_model_idx][device_id][seq_num]
+            if des_rsu == generated_id:
+                offload_time = 0
+            else:
+                offload_time = task_size / self.RSUs[generated_id].rsu_rate
+            download_time = 0
+            for policy in policy_list:
+                src_rsu, des_rsu, model_list = self.get_download_model_rsu_info(policy)
+                model_list_added = []
+                if self.RSUs[des_rsu].satisfy_add_task_constraint(sub_task, is_Request=False):
+                    self.RSUs[des_rsu].add_task(sub_task)
+                else:
+                    return False
+                for model_structure_idx in model_list:
+                    if model_structure_idx not in self.RSUs[des_rsu].model_structure_list:
+                        model_list_added.append(model_structure_idx)
+                if self.RSUs[des_rsu].satisfy_add_model_structure_constraint([model_structure_idx], is_Request=False):
+                    self.RSUs[des_rsu].add_model_structure(model_list_added)
+                else:
+                    return False
+                if len(model_list) == 0:
+                    download_time += 0
+                else:
+                    model_size = model_util.get_model_sturctures_size(model_list_added)
+                    download_time += model_size / (self.RSUs[src_rsu].rsu_rate if src_rsu != self.rsu_num else
+                                                          self.RSUs[des_rsu].download_rate)
+            if download_time + offload_time + exec_time > sub_task["latency"]:
+                return False
+        return True
 
     def generate_rsu_model_queue(self):
         rsu_model_queue = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in
