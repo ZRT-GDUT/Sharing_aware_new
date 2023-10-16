@@ -13,18 +13,13 @@ import numpy as np
 
 
 class Algo:
-    def __init__(self, RSUs: List[device.RSU], task_list, model_download_time_list):
+    def __init__(self, RSUs: List[device.RSU], task_list, sub_task_list, model_download_time_list):
         self.RSUs = RSUs
         self.rsu_num = len(RSUs)
         self.task_list = task_list
+        self.sub_task_list = sub_task_list
         self.cloudidx = self.rsu_num
         self.model_download_time_list = model_download_time_list
-
-    def get_all_task_num(self):
-        task_num = 0
-        for rsu_idx in range(self.rsu_num):
-            task_num = len(self.RSUs[rsu_idx].task_list) + task_num
-        return task_num
 
     def MA(self, task_list, min_gap=0.1):
         rsu_to_rsu_structure = {}  # xx-xx:xx-xx-[...]
@@ -81,7 +76,8 @@ class Algo:
             if task in self.RSUs[rsu_idx].task_list:
                 continue
             not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task_model_structure_list)
-            not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(task_model_structure_list)
+            not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(
+                task_model_structure_list)
             generated_id = task[0]["rsu_id"]
             model_idx = task[0]["model_idx"]
             model = model_util.get_model(model_idx)
@@ -231,7 +227,8 @@ class Algo:
                     download_model_rsu_list[rsu_idxs] = set()
                 for model_structure_idx in not_added_model_structure_initial:  # 通过greeedy方式获取应从哪些rsu下载model
                     if self.model_download_time_list.get(model_structure_idx) is not None:
-                        if self.RSUs[rsu_idx].download_rate > self.RSUs[self.model_download_time_list[model_structure_idx]].rsu_rate:
+                        if self.RSUs[rsu_idx].download_rate > self.RSUs[
+                            self.model_download_time_list[model_structure_idx]].rsu_rate:
                             if download_model_rsu_list.get(self.cloudidx) is None:
                                 download_model_rsu_list[self.cloudidx] = set()
                             download_model_rsu_list[self.cloudidx].add(model_structure_idx)
@@ -255,7 +252,8 @@ class Algo:
                 download_model_rsu_info = self.get_download_model_rsu(rsu_idx, rsu_idx, [])
                 rsu_to_rsu_model_structure_list[sub_task_key] = []
                 rsu_to_rsu_model_structure_list[sub_task_key].append(download_model_rsu_info)
-            obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Initial=False, is_Request=False)
+            obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Initial=False,
+                                                     is_Request=False)
             if obj_value_new < obj_value and obj_value_new < T_max:
                 self.RSUs[rsu_idx].add_model_structure(task["model_structure"])
                 removed_model_list = set()
@@ -352,10 +350,7 @@ class Algo:
         return task_num
 
     def get_total_sub_num(self):
-        num = 0
-        for rsu_idx in range(self.rsu_num):
-            num += len(self.RSUs[rsu_idx].sub_task_list)
-        return num
+        return len(self.sub_task_list)
 
     def cal_objective_value(self, rsu_to_rsu_model_structure_list, is_Initial=False, is_Shared=True,
                             is_Request=False):
@@ -369,9 +364,9 @@ class Algo:
                 obj.append(
                     self.cal_single_rsu_obj(rsu_to_rsu_model_structure_list, rsu_idx, is_Shared, is_Request))
         if is_Initial:
-            return max(obj), rsu_to_rsu_model_structure_list
+            return max(obj), rsu_to_rsu_model_structure_list, obj
         else:
-            return max(obj)
+            return max(obj), obj
 
     def cal_single_rsu_obj_initial(self, rsu_download_model, rsu_idx, is_Shared=True):  # 还没有判断存储空间
         device_id = self.RSUs[rsu_idx].device_idx
@@ -421,7 +416,8 @@ class Algo:
         download_time = 0
         trans_time = 0
         already_trans = {0: [], 1: [], 2: []}
-        already_download = {model_structure_idx: set() for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size))}
+        already_download = {model_structure_idx: set() for model_structure_idx in
+                            range(len(model_util.Sub_Model_Structure_Size))}
         if is_Request:
             for job_id in rsu_download_model.keys():
                 generated_id = self.task_list[job_id][0]["rsu_id"]
@@ -452,10 +448,10 @@ class Algo:
                         else:
                             download_model_size = 0
                             for model_structure_idx in download_models:
-                                if download_rsu_idx in already_download[model_structure_idx]:
+                                if len(already_download[model_structure_idx]) != 0:
                                     continue
                                 else:
-                                    already_download[model_structure_idx].add(model_structure_idx)
+                                    already_download[model_structure_idx].add(download_rsu_idx)
                                     download_model_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
                             download_time_current = download_model_size / (self.RSUs[download_rsu_idx].rsu_rate if
                                                                            download_rsu_idx != self.cloudidx else
@@ -483,7 +479,8 @@ class Algo:
                             sub_task_size = model_util.get_model(model_idx).single_task_size
                             trans_time_current = sub_task_size / self.RSUs[generated_id].rsu_rate
                             trans_time += trans_time_current
-                    sub_task_exectime = self.RSUs[rsu_idx].latency_list[model_idx][sub_task][device_id][self.task_list[job_id][sub_task]["seq_num"]]
+                    sub_task_exectime = self.RSUs[rsu_idx].latency_list[model_idx][sub_task][device_id][
+                        self.task_list[job_id][sub_task]["seq_num"]]
                     task_exec_time_list[model_idx].append(sub_task_exectime)
                     for download_info in rsu_download_model[sub_task_id]:
                         download_rsu_idx, task_rsu_idx, download_models = self.get_download_model_rsu_info(
@@ -493,10 +490,10 @@ class Algo:
                         else:
                             download_model_size = 0
                             for model_structure_idx in download_models:
-                                if download_rsu_idx in already_download[model_structure_idx]:
+                                if len(already_download[model_structure_idx]) != 0:
                                     continue
                                 else:
-                                    already_download[model_structure_idx].add(model_structure_idx)
+                                    already_download[model_structure_idx].add(download_rsu_idx)
                                     download_model_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
                             download_time_current = download_model_size / (self.RSUs[download_rsu_idx].rsu_rate if
                                                                            download_rsu_idx != self.cloudidx else
@@ -526,15 +523,6 @@ class Algo:
                 for sub_task in task:
                     self.RSUs[rsu_idx].sub_task_list.append(sub_task)
 
-    # def allocate_task_for_rsu_later(self, rsu_task_queue):
-    #     for rsu_idx in range(len(rsu_task_queue)):
-    #         self.RSUs[rsu_idx].task_list = []
-    #         self.RSUs[rsu_idx].task_list = rsu_task_queue[rsu_idx]
-
-    # def clear_rsu_task_list(self):
-    #     for rsu_idx in range(self.rsu_num):
-    #         self.RSUs[rsu_idx].task_list = []
-
     def allocate_task_for_rsu(self):
         for task in self.task_list:
             rsu_id = task[0]["rsu_id"]
@@ -547,41 +535,102 @@ class Algo:
 
         def employ_action(action_value, rsu_model_queue):
             action_value = int(action_value)
-            src_rsu_id = int(action_value / ((self.rsu_num) * len(model_util.Sub_Model_Structure_Size)))
-            des_rsu_id = int(action_value / ((self.rsu_num+1) * len(model_util.Sub_Model_Structure_Size)))
+            src_rsu_id = int(action_value / (self.rsu_num * len(model_util.Sub_Model_Structure_Size)))
+            des_rsu_id = int(action_value % self.rsu_num)
             model_id = int(action_value % len(model_util.Sub_Model_Structure_Size))
+            des_rsu_model_size = 0
+            for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
+                if rsu_model_queue[des_rsu_id][model_structure_idx] == 1:
+                    des_rsu_model_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
+            if src_rsu_id == des_rsu_id:
+                download_time = -10000
+                return download_time, rsu_model_queue
             if src_rsu_id != self.rsu_num:
                 if model_id not in self.RSUs[src_rsu_id].initial_model_structure_list or \
                         model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
-                    download_time = -1000
+                    download_time = -10000
+                    return download_time, rsu_model_queue
                 else:
-                    rsu_model_queue[des_rsu_id][model_id] = 1
-                    download_time = -(model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[src_rsu_id].rsu_rate)
+                    if des_rsu_model_size + model_util.Sub_Model_Structure_Size[model_id] > \
+                            self.RSUs[des_rsu_id].storage_capacity:
+                        download_time = -10000
+                    else:
+                        rsu_model_queue[des_rsu_id][model_id] = 1
+                        download_time = -(
+                                model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[src_rsu_id].rsu_rate)
+                    return download_time, rsu_model_queue
             else:
                 if model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
-                    download_time = -1000
+                    download_time = -10000
                 else:
-                    rsu_model_queue[des_rsu_id][model_id] = 1
-                    download_time = -(model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[des_rsu_id].download_rate)
-            return download_time, rsu_model_queue
+                    if self.RSUs[des_rsu_id].get_total_model_size() + model_util.Sub_Model_Structure_Size[model_id] > \
+                            self.RSUs[des_rsu_id].storage_capacity:
+                        download_time = -10000
+                    else:
+                        rsu_model_queue[des_rsu_id][model_id] = 1
+                        download_time = -(
+                                model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[des_rsu_id].download_rate)
+                return download_time, rsu_model_queue
 
         def get_observation(rsu_model_queue) -> list:
-            obs = [0 for _ in range((self.rsu_num+1)*len(model_util.Sub_Model_Structure_Size))]
-            for rsu_idx in range(len(rsu_model_queue)):
-                for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
-                    idx = rsu_idx * len(model_util.Sub_Model_Structure_Size) - 1 + model_structure_idx
-                    obs[idx] = rsu_model_queue[rsu_idx][model_structure_idx]
+            obs = [element for sublist in rsu_model_queue for element in sublist]
             return obs
+
+        def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
+            self.cal_objective_value(rsu_to_rsu_model_structure_list)
+            pass
+
+        def employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub, DRL_model):
+            # 更新策略
+            # 0: 完成修改
+            # 1: 不满足约束
+            # 2: 不需要修改
+            rsu_model_queue = self.generate_rsu_model_queue()
+            # 根据model迁移情况判断每个rsu的model存储情况
+            for key in rsu_to_rsu_model_structure_list_sub.keys():
+                src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(
+                    rsu_to_rsu_model_structure_list_sub[key])
+                for model_idx in model_list_:
+                    rsu_model_queue[des_rsu_][model_idx] = 1
+            model_env = get_observation(rsu_model_queue)
+            task_num = len(self.sub_task_list)
+            action_value = int(action_value)
+            rsu_id = int(action_value / task_num)
+            task_id = action_value % task_num
+            task = self.sub_task_list[task_id]
+            request_id = task['job_id']
+            sub_task_id = task["sub_model_idx"]
+            sub_task_key = "{}-{}".format(request_id, sub_task_id)
+            model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key]
+            src_rsu, des_rsu, model_list = self.get_download_model_rsu_info(model_policy)
+            # print("task_id: {}, rsu_id: {}".format(task_id, rsu_id))
+            if src_rsu == rsu_id:
+                return 2
+            change_after = []
+            for model_structure_idx in model_list:
+                if rsu_model_queue[des_rsu][model_structure_idx] == 1:
+                    continue
+                des_rsu_list = [i for i in range(des_rsu, 480, 5)]
+                model_list_key = [i for i in range(model_structure_idx, 480, 16)]
+                intersection = set(des_rsu_list).intersection(set(model_list_key))
+                intersection_list = list(intersection)
+                model_src_rsu = DRL_model.choose_action(model_env, finished=True, intersection_list=intersection_list,
+                                                        rsu_num=self.rsu_num)
+                change_after_info = self.get_download_model_rsu(model_src_rsu, des_rsu, model_structure_idx)
+                change_after.append(change_after_info)
+            rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
+            for rsu_idx in range(self.rsu_num):
+                self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list
+            if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub):
+                return 0
+            return 1
 
         num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
         num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
         DRL_model = DQN.DQN(num_state, num_action)
-        best_optimal = sys.maxsize
         train_base = 3.0
         train_bais = 30.0
-        REWARDS = []
-        LOSS = []
-        OPT_RESULT = []
+        LOSS_model = []
         for epoch in tqdm(range(num_epoch), desc="dqn"):
             rsu_model_queue = self.generate_rsu_model_queue()
             observation = get_observation(rsu_model_queue)
@@ -600,21 +649,91 @@ class Algo:
             if epoch >= train_bais and epoch % train_base == 0:
                 # print("DRL is learning......")
                 loss = DRL_model.learn()
+                LOSS_model.append(float(loss))
+        with open("loss.txt", "w+") as f:
+            f.write("loss: {}\n".format(LOSS_model))
+        action_list = DRL_model.choose_action(get_observation(self.generate_rsu_model_queue()), finished=True)
+        print(action_list)
+        # ------------------------------------------------------------------------------
+        #                任务部署模型
+        # ------------------------------------------------------------------------------
+        task_model_state = self.rsu_num
+        task_model_action = self.get_total_sub_num() * self.rsu_num
+        task_model = DQN.DQN(task_model_state, task_model_action)
+        best_optimal = sys.maxsize
+        REWARDS = []
+        LOSS = []
+        OPT_RESULT = []
+        for epoch in tqdm(range(num_epoch), desc="dqn"):
+            rsu_to_rsu_structure = {}
+            for rsu_idx in range(self.rsu_num):
+                self.RSUs[rsu_idx].clear_added_model()
+            self.allocate_sub_task_initial()
+            _, rsu_to_rsu_model_structure_list, observation = self.cal_objective_value(rsu_to_rsu_structure,
+                                                                                       is_Initial=True)
+            rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
+            if max(observation) < best_optimal:
+                best_optimal = max(observation)
+            total_reward = 0
+            for _ in range(500):
+                action_value = task_model.choose_action(observation)
+                if action_value == num_state - 1:
+                    # print("DRL think this state is the optimal, thus break..")
+                    task_model.store_transition(observation, action_value, 0, observation)
+                    break
+                # employ action .....
+                flag = employ_action_task(rsu_to_rsu_model_structure_list_sub)
+                if flag == 2:
+                    continue
+                observation_ = get_observation_task(rsu_to_rsu_model_structure_list_sub)
+                reward = max(observation_) - max(observation)
+                total_reward += reward
+                if flag == 1:
+                    reward = -100000
+                    task_model.store_transition(observation, action_value, reward, observation_)
+                    break
+                task_model.store_transition(observation, action_value, reward, observation_)
+                if max(observation_) < best_optimal:
+                    best_optimal = max(observation_)
+                observation = observation_
+            REWARDS.append(total_reward)
+            OPT_RESULT.append(best_optimal)
+            # print("objective_value: {}".format(best_optimal))
+            if epoch >= train_bais and epoch % train_base == 0:
+                # print("DRL is learning......")
+                loss = task_model.learn()
                 LOSS.append(float(loss))
             if epoch % 50 == 0:
                 # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
                 pass
+        # plt.plot(LOSS)
+        # plt.title("loss curve......")
+        # plt.show()
+        # plt.plot(OPT_RESULT)
+        # plt.title("best_optimal")
+        # plt.ylabel("objective, minimal is better.")
+        # plt.show()
         with open("loss.txt", "w+") as f:
+            f.write("reward: {}\n".format(REWARDS))
             f.write("loss: {}\n".format(LOSS))
-        env_state = get_observation(self.generate_rsu_model_queue())
-        print("在最初始状态下选择的动作是:", DRL_model.choose_action(env_state, finished=True))
+        return best_optimal
 
+    def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub):
+        pass
 
     def generate_rsu_model_queue(self):
-        rsu_model_queue = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(self.rsu_num+1)]
+        rsu_model_queue = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in
+                           range(self.rsu_num + 1)]
         for rsu_idx in range(self.rsu_num):
             for model_structure_idx in self.RSUs[rsu_idx].initial_model_structure_list:
                 rsu_model_queue[rsu_idx][model_structure_idx] = 1
         for model_structure_idxs in range(len(model_util.Sub_Model_Structure_Size)):
             rsu_model_queue[self.rsu_num][model_structure_idxs] = 1
         return rsu_model_queue
+
+    def allocate_sub_task_initial(self):
+        for rsu_idx in range(self.rsu_num):
+            self.RSUs[rsu_idx].sub_task_list = []
+        for sub_task in self.sub_task_list:
+            rsu_id = sub_task["rsu_id"]
+            self.RSUs[rsu_id].sub_task_list.append(sub_task)

@@ -65,7 +65,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
 
 def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=5, max_storage=1200, model_ration=6):
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
-    task_list = google_data_util.process_task(rsu_num)
+    task_list, sub_task_list = google_data_util.process_task(rsu_num)
     for task in task_list:
         rsu_id = task[0]["rsu_id"]
         RSUs[rsu_id].add_task(task)
@@ -83,7 +83,7 @@ def run_algo(device_ration=0.5, download_rate=120, rsu_rate=100, rsu_num=5, max_
                     model_download_rsu = rsu_idx
         if model_download_rsu >= 0:
             model_download_time_list[model_structure_idx] = model_download_rsu
-    Algo_new = Algo(RSUs, task_list, model_download_time_list)
+    Algo_new = Algo(RSUs, task_list, sub_task_list, model_download_time_list)
     Algo_new.dqn()
     # objective_value = Algo_new.MA(task_list)
     # return objective_value

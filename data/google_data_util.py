@@ -73,6 +73,8 @@ def get_request_type(sub_model_num, max_k=4):  # 随机生成任务需要用到�
 def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> List[dict]:  # 任务里面有哪些属性
     # df = pd.read_csv(filename)
     task_lists = [[] for _ in range(filename)]
+    sub_task_list_ = []
+    task_id = 0
     for job_idx in range(filename):  # 遍历每一行数据
         model_idx = random.randint(0, len(model_util.Model_name) - 1)
         task_num = model_util.Sub_model_num[model_idx]
@@ -89,8 +91,11 @@ def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> Li
             info["seq_num"] = random.randint(0, 9)
             info["model_structure"] = model_util.get_model(info["model_idx"]).require_sub_model_all[sub_task]
             info['position'] = rsu_idx
+            info['task_id'] = task_id
+            task_id += 1
             task_lists[job_idx].append(info)
-    return task_lists
+            sub_task_list_.append(info)
+    return task_lists, sub_task_list_
 
 
 def outfiles():

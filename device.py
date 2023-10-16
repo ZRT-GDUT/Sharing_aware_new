@@ -163,6 +163,9 @@ class RSU:
             ]
         ]
 
+    def clear_added_model(self):
+        self.model_structure_list = self.initial_model_structure_list
+
     def get_total_task_size(self, is_Request=True):
         task_size_total = 0
         task_flag_list = set()

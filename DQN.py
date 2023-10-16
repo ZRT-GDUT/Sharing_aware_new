@@ -3,6 +3,8 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+import model_util
+
 
 class Net(nn.Module):
     """docstring for Net"""
@@ -41,17 +43,26 @@ class DQN:
         self.loss_func = nn.MSELoss()
         self.episilo = episilo
 
-    def choose_action(self, state, finished = False):
+    def choose_action(self, state, finished=False, intersection_list=None, rsu_num=0):
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
+        if intersection_list is not None:
+            action_value = self.eval_net.forward(state)
+            max_action_value = -10000000
+            for idx in intersection_list:
+                if action_value[0, idx].item() > max_action_value:
+                    max_action_value = action_value[0, idx].item()
+                    max_action_value_idx = idx
+            src_rsu = int(max_action_value_idx / (rsu_num * len(model_util.Sub_Model_Structure_Size)))
+            return src_rsu
         if np.random.randn() <= self.episilo:
             action_value = self.eval_net.forward(state)
             if finished:
-                return action_value
-            action = torch.max(action_value, 1)[1].data.numpy()
+                return action_value[0, 300].item()
+            action = torch.max(action_value, 1)[1].data.item()
         else:
             action_value = self.eval_net.forward(state)
             if finished:
-                return action_value
+                return action_value[0, 300].item()
             action = np.random.randint(0, self.num_action)
         return action
 
