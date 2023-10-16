@@ -577,9 +577,8 @@ class Algo:
             return obs
 
         def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
-            self.cal_objective_value(rsu_to_rsu_model_structure_list)
-            pass
-
+            _, observations = self.cal_objective_value(rsu_to_rsu_model_structure_list)
+            return observations
         def employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub, DRL_model):
             # 更新策略
             # 0: 完成修改
