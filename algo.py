@@ -2,6 +2,7 @@ import random
 import sys
 from typing import List
 
+from matplotlib import pyplot as plt
 from pulp import LpStatusInfeasible
 from tqdm import tqdm
 
@@ -588,10 +589,10 @@ class Algo:
             rsu_model_queue = self.generate_rsu_model_queue()
             # 根据model迁移情况判断每个rsu的model存储情况
             for key in rsu_to_rsu_model_structure_list_sub.keys():
-                src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(
-                    rsu_to_rsu_model_structure_list_sub[key])
-                for model_idx in model_list_:
-                    rsu_model_queue[des_rsu_][model_idx] = 1
+                for model_policy_ in rsu_to_rsu_model_structure_list_sub[key]:
+                    src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(model_policy_)
+                    for model_idx in model_list_:
+                        rsu_model_queue[des_rsu_][model_idx] = 1
             model_env = get_observation(rsu_model_queue)
             task_num = len(self.sub_task_list)
             action_value = int(action_value)
@@ -601,12 +602,13 @@ class Algo:
             request_id = task['job_id']
             sub_task_id = task["sub_model_idx"]
             sub_task_key = "{}-{}".format(request_id, sub_task_id)
-            model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key]
+            model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key][0]
             src_rsu, des_rsu, model_list = self.get_download_model_rsu_info(model_policy)
             # print("task_id: {}, rsu_id: {}".format(task_id, rsu_id))
             if des_rsu == rsu_id:
                 return 2, rsu_to_rsu_model_structure_list_sub
             change_after = []
+            model_policy_rsu_list = {i: [] for i in range(self.rsu_num+1)}
             for model_structure_idx in model_list:
                 if rsu_model_queue[des_rsu][model_structure_idx] == 1:
                     continue
@@ -616,7 +618,10 @@ class Algo:
                 intersection_list = list(intersection)
                 model_src_rsu = DRL_model.choose_action(model_env, finished=True, intersection_list=intersection_list,
                                                         rsu_num=self.rsu_num)
-                change_after_info = self.get_download_model_rsu(model_src_rsu, des_rsu, model_structure_idx)
+                model_policy_rsu_list[model_src_rsu].append(model_structure_idx)
+            for model_policy_key in model_policy_rsu_list.keys():
+                m_list = model_policy_rsu_list[model_policy_key]
+                change_after_info = self.get_download_model_rsu(model_policy_key, des_rsu, m_list)
                 change_after.append(change_after_info)
             rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
             for rsu_idx in range(self.rsu_num):
@@ -659,9 +664,9 @@ class Algo:
         #                任务部署模型
         # ------------------------------------------------------------------------------
         task_model_state = self.rsu_num
-        task_model_action = self.get_total_sub_num() * self.rsu_num
+        task_model_action = self.get_total_sub_num() * self.rsu_num + 1
         task_model = DQN.DQN(task_model_state, task_model_action)
-        best_optimal = sys.maxsize
+        best_optimal = -100000
         REWARDS = []
         LOSS = []
         OPT_RESULT = []
@@ -669,21 +674,22 @@ class Algo:
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()
+                self.RSUs[rsu_idx].task_list = []
+                self.RSUs[rsu_idx].sub_task_list = []
             self.allocate_sub_task_initial()
+            self.allocate_task_for_rsu()
             _, rsu_to_rsu_model_structure_list, observation = self.cal_objective_value(rsu_to_rsu_structure,
                                                                                        is_Initial=True)
             rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
-            if max(observation) < best_optimal:
-                best_optimal = max(observation)
             total_reward = 0
-            for _ in range(500):
+            for _ in range(300):
                 action_value = task_model.choose_action(observation)
                 if action_value == num_state - 1:
                     # print("DRL think this state is the optimal, thus break..")
                     task_model.store_transition(observation, action_value, 0, observation)
                     break
                 # employ action .....
-                flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(rsu_to_rsu_model_structure_list_sub)
+                flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub, DRL_model)
                 if flag == 2:
                     continue
                 observation_ = get_observation_task(rsu_to_rsu_model_structure_list_sub)
@@ -694,8 +700,8 @@ class Algo:
                     task_model.store_transition(observation, action_value, reward, observation_)
                     break
                 task_model.store_transition(observation, action_value, reward, observation_)
-                if max(observation_) < best_optimal:
-                    best_optimal = max(observation_)
+                if -max(observation_) > best_optimal:
+                    best_optimal = -max(observation_)
                 observation = observation_
             REWARDS.append(total_reward)
             OPT_RESULT.append(best_optimal)
@@ -707,13 +713,13 @@ class Algo:
             if epoch % 50 == 0:
                 # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
                 pass
-        # plt.plot(LOSS)
-        # plt.title("loss curve......")
-        # plt.show()
-        # plt.plot(OPT_RESULT)
-        # plt.title("best_optimal")
-        # plt.ylabel("objective, minimal is better.")
-        # plt.show()
+        plt.plot(LOSS)
+        plt.title("loss curve......")
+        plt.show()
+        plt.plot(OPT_RESULT)
+        plt.title("best_optimal")
+        plt.ylabel("objective, minimal is better.")
+        plt.show()
         with open("loss.txt", "w+") as f:
             f.write("reward: {}\n".format(REWARDS))
             f.write("loss: {}\n".format(LOSS))
@@ -744,13 +750,13 @@ class Algo:
                 src_rsu, des_rsu, model_list = self.get_download_model_rsu_info(policy)
                 model_list_added = []
                 if self.RSUs[des_rsu].satisfy_add_task_constraint(sub_task, is_Request=False):
-                    self.RSUs[des_rsu].add_task(sub_task)
+                    self.RSUs[des_rsu].sub_task_list.append(sub_task)
                 else:
                     return False
                 for model_structure_idx in model_list:
                     if model_structure_idx not in self.RSUs[des_rsu].model_structure_list:
                         model_list_added.append(model_structure_idx)
-                if self.RSUs[des_rsu].satisfy_add_model_structure_constraint([model_structure_idx], is_Request=False):
+                if self.RSUs[des_rsu].satisfy_add_model_structure_constraint(model_list_added, is_Request=False):
                     self.RSUs[des_rsu].add_model_structure(model_list_added)
                 else:
                     return False
