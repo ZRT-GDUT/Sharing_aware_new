@@ -9,7 +9,7 @@ import model_util
 
 
 class RSU:
-    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=10):
+    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=5):
         # transmission rate
         if download_rate is None:
             self.download_rate = random.uniform(450, 550) / rsu_num  # Mbps
@@ -164,7 +164,7 @@ class RSU:
         ]
 
     def clear_added_model(self):
-        self.model_structure_list = self.initial_model_structure_list
+        self.model_structure_list = self.initial_model_structure_list.copy()
 
     def get_total_task_size(self, is_Request=True):
         task_size_total = 0

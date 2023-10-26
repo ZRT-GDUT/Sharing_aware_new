@@ -79,7 +79,7 @@ def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> Li
         model_idx = random.randint(0, len(model_util.Model_name) - 1)
         task_num = model_util.Sub_model_num[model_idx]
         sub_task_list = get_request_type(task_num)
-        latency = random.uniform(max_latency * 0.8, max_latency)
+        latency = max_latency
         rsu_idx = random.randint(0, rsu_num - 1)
         for sub_task in sub_task_list:
             info = {}
