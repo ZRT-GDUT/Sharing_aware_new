@@ -44,7 +44,9 @@ class DQN:
         self.episilo = episilo
 
     def choose_action(self, state, finished=False, intersection_list=None, rsu_num=0):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
+        state = state.to(device)
         if intersection_list is not None:
             action_value = self.eval_net.forward(state)
             max_action_value = -10000000
@@ -75,9 +77,10 @@ class DQN:
     def learn(self):
 
         #update the parameters
-        if self.learn_step_counter % self.memory_capacity ==0:
+        if self.learn_step_counter % self.memory_capacity == 0:
             self.target_net.load_state_dict(self.eval_net.state_dict())
         self.learn_step_counter+=1
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         #sample batch from memory
         sample_index = np.random.choice(self.memory_capacity, self.batch_size)
@@ -86,6 +89,10 @@ class DQN:
         batch_action = torch.LongTensor(batch_memory[:, self.num_state:self.num_state+1].astype(int))
         batch_reward = torch.FloatTensor(batch_memory[:, self.num_state+1:self.num_state+2])
         batch_next_state = torch.FloatTensor(batch_memory[:,-self.num_state:])
+        batch_state = batch_state.to(device)
+        batch_action = batch_action.to(device)
+        batch_reward = batch_reward.to(device)
+        batch_next_state = batch_next_state.to(device)
 
         #q_eval
         q_eval = self.eval_net(batch_state).gather(1, batch_action)

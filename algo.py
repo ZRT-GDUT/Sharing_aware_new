@@ -2,14 +2,13 @@ import random
 import sys
 from typing import List
 
+import torch
 from matplotlib import pyplot as plt
-from pulp import LpStatusInfeasible
 from tqdm import tqdm
 
 import DQN
 import device
 import model_util
-import pulp as pl
 import numpy as np
 
 
@@ -667,14 +666,19 @@ class Algo:
 
         num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
         num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(device)
+        print(torch.cuda.is_available())
         DRL_model = DQN.DQN(num_state, num_action)
+        DRL_model.eval_net.to(device)
+        DRL_model.target_net.to(device)
         train_base = 3.0
         train_bais = 30.0
         LOSS_model = []
-        for epoch in tqdm(range(350), desc="dqn"):
+        for epoch in tqdm(range(300), desc="dqn"):
             rsu_model_queue = self.generate_rsu_model_queue()
             observation = get_observation(rsu_model_queue)
-            for _ in range(400):
+            for _ in range(350):
                 action_value = DRL_model.choose_action(observation)
                 # if action_value == num_state - 1:
                 #     # print("DRL think this state is the optimal, thus break..")
@@ -698,11 +702,13 @@ class Algo:
         task_model_state = self.rsu_num
         task_model_action = self.get_total_sub_num() * self.rsu_num
         task_model = DQN.DQN(task_model_state, task_model_action)
+        task_model.eval_net.to(device)
+        task_model.target_net.to(device)
         REWARDS = []
         LOSS = []
         OPT_RESULT = []
         best_optimal = -10000
-        for epoch in tqdm(range(500), desc="dqn_task"):
+        for epoch in tqdm(range(400), desc="dqn_task"):
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()
@@ -815,7 +821,7 @@ class Algo:
                                                self.RSUs[rsu_id].download_rate)
         if download_time + offload_time + exec_time > latency_requirement:
             # time = download_time + offload_time + exec_time
-            print("latency不满足")
+            # print("latency不满足")
             return False
         return True
 
@@ -936,7 +942,7 @@ class Algo:
         best_optimal = -10000
         train_base = 3.0
         train_bais = 30.0
-        for epoch in tqdm(range(500), desc="dqn_task"):
+        for epoch in tqdm(range(500), desc="dqn_task_"):
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()

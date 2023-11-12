@@ -105,7 +105,7 @@ def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=10, max
             model_download_time_list[model_structure_idx] = model_download_rsu
     Algo_new = Algo(RSUs, task_list, sub_task_list, model_download_time_list)
     res.append(Algo_new.preference_coalition())
-    res.append(Algo_new.dqn_())
+    res.append(Algo_new.dqn())
     res.append(Algo_new.MA())
     # res.append(Algo_new.dqn())
     tmp_record(res)
@@ -132,8 +132,8 @@ def rsu_num_change():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "rsu_num  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     # plt.plot(x_list, DQN_res, color='blue', label='DQN')
@@ -166,12 +166,12 @@ def model_num_change():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        DQN_res_.append(res[1])
+        DQN_res.append(res[1])
         MA_res.append(res[2])
-        # DQN_res.append(res[1])
+        # DQN_res_.append(res[3])
     record_file(x_list, results, "Model_num  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
-    # plt.plot(x_list, DQN_res, color='blue', label='DQN')
+    plt.plot(x_list, DQN_res, color='blue', label='DQN')
     plt.plot(x_list, Pre_coa, color='yellow', label='COALITION')
     plt.xlabel('Model_num')
     plt.ylabel('Utility')
@@ -200,8 +200,8 @@ def download_change():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "Download_rate  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     # plt.plot(x_list, DQN_res, color='blue', label='DQN')
@@ -235,11 +235,11 @@ def latency_requirement():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "latency_requirement  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
-    # plt.plot(x_list, DQN_res, color='blue', label='DQN')
+    plt.plot(x_list, DQN_res, color='blue', label='DQN')
     plt.plot(x_list, Pre_coa, color='yellow', label='COALITION')
     plt.xlabel('Latency_requiredment')
     plt.ylabel('Utility')
@@ -266,8 +266,8 @@ def rsu_rate_change():
         for i in range(len(res)):
             res[i] = res[i] / second_loop_num
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "rsu_rate  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     # plt.plot(x_list, DQN_res, color='blue', label='DQN')
@@ -300,8 +300,8 @@ def storage_change():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "max_storage  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     # plt.plot(x_list, DQN_res, color='blue', label='DQN')
@@ -335,8 +335,8 @@ def time_slot_change():
         time_slot += 10
         results.append(res)
         Pre_coa.append(res[0])
-        MA_res.append(res[1])
-        # DQN_res.append(res[1])
+        DQN_res.append(res[1])
+        MA_res.append(res[2])
     record_file(x_list, results, "time_slot  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     # plt.plot(x_list, DQN_res, color='blue', label='DQN')
@@ -352,13 +352,13 @@ def time_slot_change():
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     out_line()
-    model_num_change()
-    latency_requirement()
+    # model_num_change()
+    # latency_requirement()
     storage_change()
-    rsu_rate_change()
-    download_change()
-    rsu_num_change()
-    time_slot_change()
+    # rsu_rate_change()
+    # download_change()
+    # rsu_num_change()
+    # time_slot_change()
 
 
 
