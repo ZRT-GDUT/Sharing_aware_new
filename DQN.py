@@ -10,17 +10,13 @@ class Net(nn.Module):
     """docstring for Net"""
     def __init__(self, num_states, num_action):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(num_states, 256)
+        self.fc1 = nn.Linear(num_states, 128)
         self.fc1.weight.data.normal_(0,0.1)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc2.weight.data.normal_(0,0.1)
         self.out = nn.Linear(128, num_action)
         self.out.weight.data.normal_(0,0.1)
 
     def forward(self,x):
         x = self.fc1(x)
-        x = F.relu(x)
-        x = self.fc2(x)
         x = F.relu(x)
         action_prob = self.out(x)
         return action_prob
@@ -44,9 +40,7 @@ class DQN:
         self.episilo = episilo
 
     def choose_action(self, state, finished=False, intersection_list=None, rsu_num=0):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
-        state = state.to(device)
         if intersection_list is not None:
             action_value = self.eval_net.forward(state)
             max_action_value = -10000000
@@ -75,26 +69,21 @@ class DQN:
         self.memory_counter += 1
 
     def learn(self):
-
-        #update the parameters
+        # 更新参数
         if self.learn_step_counter % self.memory_capacity == 0:
             self.target_net.load_state_dict(self.eval_net.state_dict())
-        self.learn_step_counter+=1
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.learn_step_counter += 1
 
-        #sample batch from memory
+
+        # 从内存中取样一个批次
         sample_index = np.random.choice(self.memory_capacity, self.batch_size)
         batch_memory = self.memory[sample_index, :]
         batch_state = torch.FloatTensor(batch_memory[:, :self.num_state])
-        batch_action = torch.LongTensor(batch_memory[:, self.num_state:self.num_state+1].astype(int))
-        batch_reward = torch.FloatTensor(batch_memory[:, self.num_state+1:self.num_state+2])
-        batch_next_state = torch.FloatTensor(batch_memory[:,-self.num_state:])
-        batch_state = batch_state.to(device)
-        batch_action = batch_action.to(device)
-        batch_reward = batch_reward.to(device)
-        batch_next_state = batch_next_state.to(device)
+        batch_action = torch.LongTensor(batch_memory[:, self.num_state:self.num_state + 1].astype(int))
+        batch_reward = torch.FloatTensor(batch_memory[:, self.num_state + 1:self.num_state + 2])
+        batch_next_state = torch.FloatTensor(batch_memory[:, -self.num_state:])
 
-        #q_eval
+        # 计算 Q 值
         q_eval = self.eval_net(batch_state).gather(1, batch_action)
         q_next = self.target_net(batch_next_state).detach()
         q_target = batch_reward + self.gamma * q_next.max(1)[0].view(self.batch_size, 1)
@@ -103,5 +92,7 @@ class DQN:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
         return loss
+
 

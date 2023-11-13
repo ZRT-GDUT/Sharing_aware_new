@@ -64,7 +64,7 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
             for task in RSUs[rand_rsu_id].task_list:
                 for sub_task in task:
                     for model_structure_idx in sub_task["model_structure"]:
-                        if model_structure_idx not in rand_model_structure_list:
+                        if model_structure_idx not in rand_model_structure_list and model_structure_idx not in RSUs[rand_rsu_id].model_structure_list:
                             task_model_list.add(model_structure_idx)
             task_model_structure_size = model_util.get_model_sturctures_size(task_model_list)
             rand_model_structure_size = model_util.get_model_sturctures_size(rand_model_structure_list)
@@ -105,7 +105,7 @@ def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=10, max
             model_download_time_list[model_structure_idx] = model_download_rsu
     Algo_new = Algo(RSUs, task_list, sub_task_list, model_download_time_list)
     res.append(Algo_new.preference_coalition())
-    res.append(Algo_new.dqn())
+    # res.append(Algo_new.dqn())
     res.append(Algo_new.MA())
     # res.append(Algo_new.dqn())
     tmp_record(res)
@@ -270,7 +270,7 @@ def rsu_rate_change():
         MA_res.append(res[2])
     record_file(x_list, results, "rsu_rate  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
-    # plt.plot(x_list, DQN_res, color='blue', label='DQN')
+    plt.plot(x_list, DQN_res, color='blue', label='DQN')
     plt.plot(x_list, Pre_coa, color='yellow', label='COALITION')
     plt.xlabel('rsu_rate')
     plt.ylabel('Utility')
@@ -304,7 +304,7 @@ def storage_change():
         MA_res.append(res[2])
     record_file(x_list, results, "max_storage  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
-    # plt.plot(x_list, DQN_res, color='blue', label='DQN')
+    plt.plot(x_list, DQN_res, color='blue', label='DQN')
     plt.plot(x_list, Pre_coa, color='yellow', label='COALITION')
     plt.xlabel('max_storage')
     plt.ylabel('Utility')

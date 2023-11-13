@@ -666,12 +666,7 @@ class Algo:
 
         num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
         num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(device)
-        print(torch.cuda.is_available())
         DRL_model = DQN.DQN(num_state, num_action)
-        DRL_model.eval_net.to(device)
-        DRL_model.target_net.to(device)
         train_base = 3.0
         train_bais = 30.0
         LOSS_model = []
@@ -702,8 +697,6 @@ class Algo:
         task_model_state = self.rsu_num
         task_model_action = self.get_total_sub_num() * self.rsu_num
         task_model = DQN.DQN(task_model_state, task_model_action)
-        task_model.eval_net.to(device)
-        task_model.target_net.to(device)
         REWARDS = []
         LOSS = []
         OPT_RESULT = []
@@ -722,7 +715,7 @@ class Algo:
                 best_optimal = -max(observation)
             rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
             total_reward = 0
-            for _ in range(500):
+            for _ in range(400):
                 action_value = task_model.choose_action(observation)
                 flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value,
                                                                                rsu_to_rsu_model_structure_list_sub,
@@ -909,18 +902,47 @@ class Algo:
             model_env = get_observation(rsu_model_queue)
             task_num = len(self.sub_task_list)
             action_value = int(action_value)
-            rsu_id = int(action_value / task_num)
+            rsu_id_1 = action_value % (self.rsu_num + 1)
+            rsu_id_2 = (action_value // (self.rsu_num + 1)) % (self.rsu_num + 1)
+            rsu_id_3 = (action_value // ((self.rsu_num + 1) ** 2)) % (self.rsu_num + 1)
+            rsu_id_list = [rsu_id_1, rsu_id_2, rsu_id_3]
+            rsu_id_set = set(rsu_id_list)
+            rsu_id = int(action_value / ((self.rsu_num + 1)**3 * task_num))
             task_id = action_value % task_num
             task = self.sub_task_list[task_id]
             request_id = task['job_id']
             sub_task_id = task["sub_model_idx"]
             sub_task_key = "{}-{}".format(request_id, sub_task_id)
+            task_download_model = task["model_structure"]
+            for i in range(len(model_util.Sub_Model_Structure_Size)):
+                if rsu_model_queue[rsu_id][i] == 1:
+                    task_download_model.remove(i)
             model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key][0]
             src_rsu, des_rsu, _ = self.get_download_model_rsu_info(model_policy)
+            change_before = rsu_to_rsu_model_structure_list_sub[sub_task_key]
             if des_rsu == rsu_id:
                 return 2, rsu_to_rsu_model_structure_list_sub
-            change_after = []
-            rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
+            if len(task_download_model) == 0:  # 如果本地已有全部模型则不需要下载model
+                task_download_info = self.get_download_model_rsu(task["rsu_id"], rsu_id, [])
+                rsu_to_rsu_model_structure_list_sub[sub_task_key] = []
+                rsu_to_rsu_model_structure_list_sub[sub_task_key].append(task_download_info)
+            else:  # 得出model应该从哪个rsu下载
+                download_rsu_model = {i: [] for i in rsu_id_set}
+                model_select = []
+                change_after = []
+                for model_id in task_download_model:
+                    for rsu_id_ in rsu_id_set:
+                        if rsu_model_queue[rsu_id_][model_id] == 1:
+                            model_select.append(model_id)
+                            download_rsu_model[rsu_id_].append(model_id)
+                if len(model_select) != len(task_download_model):  # 所选择的rsu不包含task需要的全部model
+                    return 1, rsu_to_rsu_model_structure_list_sub
+                else:
+                    for download_rsu_model_key in download_rsu_model.keys():
+                        task_download_info = self.get_download_model_rsu(download_rsu_model_key, rsu_id,
+                                                                         download_rsu_model[download_rsu_model_key])
+                        change_after.append(task_download_info)
+                    rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
                 self.RSUs[rsu_idx].sub_task_list = []
@@ -931,10 +953,8 @@ class Algo:
         # ------------------------------------------------------------------------------
         #                任务部署模型
         # ------------------------------------------------------------------------------
-        task_model_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * (len(self.sub_task_list)) * \
-                    self.rsu_num
-        task_model_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num * self.rsu_num * \
-                     (len(self.sub_task_list))
+        task_model_state = self.rsu_num
+        task_model_action = (self.rsu_num + 1)**3 * self.rsu_num * len(self.sub_task_list)
         task_model = DQN.DQN(task_model_state, task_model_action)
         REWARDS = []
         LOSS = []
@@ -951,6 +971,7 @@ class Algo:
             self.allocate_sub_task_initial()
             self.allocate_task_for_rsu()
             _, rsu_to_rsu_model_structure_list, observation = self.cal_objective_value(rsu_to_rsu_structure,
+                                                                                       is_Shared=False,
                                                                                        is_Initial=True, is_dqn=True)
             if -max(observation) > best_optimal:
                 best_optimal = -max(observation)
