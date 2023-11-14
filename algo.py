@@ -784,6 +784,7 @@ class Algo:
         device_id = self.RSUs[rsu_id].device_idx
         exec_time = self.RSUs[rsu_id].latency_list[model_idx_][sub_model_idx_][device_id][seq_num]
         latency_requirement = sub_task_["latency"]
+        task_model_structure = set(sub_task_["model_structure"])
         if self.RSUs[rsu_id].satisfy_add_task_constraint(sub_task_, is_Request=False):
             pass
         else:
@@ -802,7 +803,10 @@ class Algo:
                     if model_structure_idx not in self.RSUs[rsu_id].initial_model_structure_list:
                         model_list_added.append(model_structure_idx)
             else:
-
+                if task_model_structure.issubset(set(self.RSUs[rsu_id].model_structure_list)):
+                    pass
+                else:
+                    model_list_added = model_list_
             if self.RSUs[rsu_id].satisfy_add_model_structure_constraint(model_list_added, is_Request=False):
                 pass
             else:
@@ -906,7 +910,7 @@ class Algo:
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
                 self.RSUs[rsu_idx].sub_task_list = []
-            if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key):
+            if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=False):
                 return 0, rsu_to_rsu_model_structure_list_sub
             # rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_before
             return 1, rsu_to_rsu_model_structure_list_sub
