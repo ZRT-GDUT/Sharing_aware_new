@@ -487,6 +487,7 @@ class Algo:
                 job_id = int(sub_key[0])
                 sub_task = int(sub_key[1])
                 generated_id = self.task_list[job_id][sub_task]["rsu_id"]
+                task_model_structure = set(self.task_list[job_id][sub_task]["model_structure"])
                 model_idx = self.task_list[job_id][sub_task]["model_idx"]
                 value = rsu_download_model[sub_task_id][0]
                 trans_rsu_idx, task_rsu_idx, _ = self.get_download_model_rsu_info(value)
@@ -519,12 +520,10 @@ class Algo:
                                                                                download_rsu_idx != self.cloudidx else
                                                                                self.RSUs[task_rsu_idx].download_rate)
                             else:
-                                flag = True
-                                set_download_models = set(download_models)
-                                if set_download_models.issubset(already_download_no_shared):
+                                if task_model_structure.issubset(already_download_no_shared):
                                     download_time_current = 0
                                 else:
-                                    for x in set_download_models:
+                                    for x in download_models:
                                         already_download_no_shared.add(x)
                                     download_model_size = model_util.get_model_sturctures_size(download_models)
                                     download_time_current = download_model_size / (
@@ -755,7 +754,7 @@ class Algo:
             f.write("loss: {}\n".format(LOSS))
         return best_optimal
 
-    def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key):
+    def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=True):
         for task_id in rsu_to_rsu_model_structure_list_sub.keys():
             if task_id == sub_task_key:
                 continue
@@ -785,6 +784,11 @@ class Algo:
         device_id = self.RSUs[rsu_id].device_idx
         exec_time = self.RSUs[rsu_id].latency_list[model_idx_][sub_model_idx_][device_id][seq_num]
         latency_requirement = sub_task_["latency"]
+        if self.RSUs[rsu_id].satisfy_add_task_constraint(sub_task_, is_Request=False):
+            pass
+        else:
+            # print("task不满足")
+            return False
         if rsu_id == generated_id_:
             offload_time = 0
         else:
@@ -793,14 +797,12 @@ class Algo:
         for policy_ in policy_cons:
             src_rsu_, _, model_list_ = self.get_download_model_rsu_info(policy_)
             model_list_added = []
-            if self.RSUs[rsu_id].satisfy_add_task_constraint(sub_task_, is_Request=False):
-                pass
+            if is_Shared:
+                for model_structure_idx in model_list_:
+                    if model_structure_idx not in self.RSUs[rsu_id].initial_model_structure_list:
+                        model_list_added.append(model_structure_idx)
             else:
-                # print("task不满足")
-                return False
-            for model_structure_idx in model_list_:
-                if model_structure_idx not in self.RSUs[rsu_id].initial_model_structure_list:
-                    model_list_added.append(model_structure_idx)
+
             if self.RSUs[rsu_id].satisfy_add_model_structure_constraint(model_list_added, is_Request=False):
                 pass
             else:
@@ -839,50 +841,6 @@ class Algo:
     #                DQN_no_shared algorithm
     # ------------------------------------------------------------------------------
     def dqn_(self):
-
-        def employ_action(action_value, rsu_model_queue):
-            action_value = int(action_value)
-            src_rsu_id = int(action_value / (self.rsu_num * len(model_util.Sub_Model_Structure_Size)))
-            des_rsu_id = int(action_value % self.rsu_num)
-            model_id = int(action_value % len(model_util.Sub_Model_Structure_Size))
-            des_rsu_model_size = 0
-            for model_structure_idx in range(len(model_util.Sub_Model_Structure_Size)):
-                if rsu_model_queue[des_rsu_id][model_structure_idx] == 1:
-                    des_rsu_model_size += model_util.Sub_Model_Structure_Size[model_structure_idx]
-            if src_rsu_id == des_rsu_id:
-                download_time = -10000
-                return download_time, rsu_model_queue
-            if src_rsu_id != self.rsu_num:
-                if model_id not in self.RSUs[src_rsu_id].initial_model_structure_list or \
-                        model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
-                    download_time = -10000
-                    return download_time, rsu_model_queue
-                else:
-                    if des_rsu_model_size + model_util.Sub_Model_Structure_Size[model_id] > \
-                            self.RSUs[des_rsu_id].storage_capacity:
-                        download_time = -10000
-                    else:
-                        rsu_model_queue[des_rsu_id][model_id] = 1
-                        download_time = -(
-                                model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[src_rsu_id].rsu_rate)
-                    return download_time, rsu_model_queue
-            else:
-                if model_id in self.RSUs[des_rsu_id].initial_model_structure_list:
-                    download_time = -10000
-                else:
-                    if self.RSUs[des_rsu_id].get_total_model_size() + model_util.Sub_Model_Structure_Size[model_id] > \
-                            self.RSUs[des_rsu_id].storage_capacity:
-                        download_time = -10000
-                    else:
-                        rsu_model_queue[des_rsu_id][model_id] = 1
-                        download_time = -(
-                                model_util.Sub_Model_Structure_Size[model_id] / self.RSUs[des_rsu_id].download_rate)
-                return download_time, rsu_model_queue
-
-        def get_observation(rsu_model_queue) -> list:
-            obs = [element for sublist in rsu_model_queue for element in sublist]
-            return obs
-
         def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
             _, observations = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_dqn=True)
             return observations
@@ -899,7 +857,6 @@ class Algo:
                     src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(model_policy_)
                     for model_idx in model_list_:
                         rsu_model_queue[des_rsu_][model_idx] = 1
-            model_env = get_observation(rsu_model_queue)
             task_num = len(self.sub_task_list)
             action_value = int(action_value)
             rsu_id_1 = action_value % (self.rsu_num + 1)
@@ -927,16 +884,19 @@ class Algo:
                 rsu_to_rsu_model_structure_list_sub[sub_task_key] = []
                 rsu_to_rsu_model_structure_list_sub[sub_task_key].append(task_download_info)
             else:  # 得出model应该从哪个rsu下载
+                task_download_model = task["model_structure"]
                 download_rsu_model = {i: [] for i in rsu_id_set}
                 model_select = []
                 change_after = []
                 for model_id in task_download_model:
                     for rsu_id_ in rsu_id_set:
+                        if len(model_select) == len(task_download_model):
+                            continue
                         if rsu_model_queue[rsu_id_][model_id] == 1:
                             model_select.append(model_id)
                             download_rsu_model[rsu_id_].append(model_id)
                 if len(model_select) != len(task_download_model):  # 所选择的rsu不包含task需要的全部model
-                    return 1, rsu_to_rsu_model_structure_list_sub
+                    return 1, rsu_to_rsu_model_structure_list_sub  # ??
                 else:
                     for download_rsu_model_key in download_rsu_model.keys():
                         task_download_info = self.get_download_model_rsu(download_rsu_model_key, rsu_id,
@@ -1039,9 +999,11 @@ class Algo:
             for rsu_idx in range(self.rsu_num):
                 if rsu_idx_task == rsu_idx:
                     continue
-                not_added_model_structure = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
-                not_added_model_structure_initial = self.RSUs[rsu_idx].has_model_structure_initial(
-                    task["model_structure"])
+                not_added_model_structure = self.RSUs[rsu_idx].has_model_structure_initial(task["model_structure"])
+                if len(self.RSUs[rsu_idx].has_model_structure_initial(task["model_structure"])) == 0:
+                    not_added_model_structure_initial = []
+                else:
+                    not_added_model_structure_initial = task["model_structure"]
                 generated_id = task["rsu_id"]
                 model_idx = task["model_idx"]
                 model = model_util.get_model(model_idx)
@@ -1063,6 +1025,9 @@ class Algo:
                         else:
                             download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
                                              self.RSUs[self.model_download_time_list[model_structure_idx]].rsu_rate
+                    else:
+                        download_time += model_util.Sub_Model_Structure_Size[model_structure_idx] / \
+                                         self.RSUs[rsu_idx].download_rate
                 if exec_time + download_time + offload_time <= latency_requirement:
                     if self.RSUs[rsu_idx].satisfy_add_task_constraint(task, is_Request=False):
                         self.RSUs[rsu_idx].sub_task_list.append(task)
