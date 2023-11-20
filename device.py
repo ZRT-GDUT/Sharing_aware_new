@@ -40,6 +40,7 @@ class RSU:
         self.model_structure_list = set()
         self.initial_model_structure_list = set()
         self.task_size = 0
+        self.queue_latency = 0
         self.latency_list = [
             # model 1
             [
@@ -219,6 +220,7 @@ class RSU:
             return False
         else:
             return True
+
 
     def satisfy_add_task_constraint(self, task, is_Request=True):
         if is_Request:

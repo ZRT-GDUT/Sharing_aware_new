@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 import DQN
+import DQN_
 import device
 import model_util
 import numpy as np
@@ -666,13 +667,13 @@ class Algo:
         num_state = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size)
         num_action = (self.rsu_num + 1) * len(model_util.Sub_Model_Structure_Size) * self.rsu_num
         DRL_model = DQN.DQN(num_state, num_action)
-        train_base = 3.0
+        train_base = 2.0
         train_bais = 30.0
         LOSS_model = []
-        for epoch in tqdm(range(300), desc="dqn"):
+        for epoch in tqdm(range(800), desc="dqn"):
             rsu_model_queue = self.generate_rsu_model_queue()
             observation = get_observation(rsu_model_queue)
-            for _ in range(350):
+            for _ in range(2000):
                 action_value = DRL_model.choose_action(observation)
                 # if action_value == num_state - 1:
                 #     # print("DRL think this state is the optimal, thus break..")
@@ -690,9 +691,13 @@ class Algo:
                 LOSS_model.append(float(loss))
         with open("loss.txt", "w+") as f:
             f.write("loss: {}\n".format(LOSS_model))
+        plt.plot(LOSS_model)
+        plt.title("loss curve......")
+        plt.show()
         # ------------------------------------------------------------------------------
         #                任务部署模型
         # ------------------------------------------------------------------------------
+        train_base = 2.0
         task_model_state = self.rsu_num
         task_model_action = self.get_total_sub_num() * self.rsu_num
         task_model = DQN.DQN(task_model_state, task_model_action)
@@ -700,7 +705,7 @@ class Algo:
         LOSS = []
         OPT_RESULT = []
         best_optimal = -10000
-        for epoch in tqdm(range(400), desc="dqn_task"):
+        for epoch in tqdm(range(500), desc="dqn_task"):
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()
@@ -714,7 +719,7 @@ class Algo:
                 best_optimal = -max(observation)
             rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
             total_reward = 0
-            for _ in range(400):
+            for _ in range(1000):
                 action_value = task_model.choose_action(observation)
                 flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value,
                                                                                rsu_to_rsu_model_structure_list_sub,
@@ -742,13 +747,13 @@ class Algo:
             if epoch % 50 == 0:
                 # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
                 pass
-        # plt.plot(LOSS)
-        # plt.title("loss curve......")
-        # plt.show()
-        # plt.plot(OPT_RESULT)
-        # plt.title("best_optimal")
-        # plt.ylabel("objective, minimal is better.")
-        # plt.show()
+        plt.plot(LOSS)
+        plt.title("loss curve......")
+        plt.show()
+        plt.plot(OPT_RESULT)
+        plt.title("best_optimal")
+        plt.ylabel("objective, minimal is better.")
+        plt.show()
         with open("loss.txt", "w+") as f:
             f.write("reward: {}\n".format(REWARDS))
             f.write("loss: {}\n".format(LOSS))
@@ -840,143 +845,6 @@ class Algo:
         for sub_task in self.sub_task_list:
             rsu_id = sub_task["rsu_id"]
             self.RSUs[rsu_id].sub_task_list.append(sub_task)
-
-    # ------------------------------------------------------------------------------
-    #                DQN_no_shared algorithm
-    # ------------------------------------------------------------------------------
-    def dqn_(self):
-        def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
-            _, observations = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_dqn=True)
-            return observations
-
-        def employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub, DRL_model):
-            # 更新策略
-            # 0: 完成修改
-            # 1: 不满足约束
-            # 2: 不需要修改
-            rsu_model_queue = self.generate_rsu_model_queue()
-            # 根据model迁移情况判断每个rsu的model存储情况
-            for key in rsu_to_rsu_model_structure_list_sub.keys():
-                for model_policy_ in rsu_to_rsu_model_structure_list_sub[key]:
-                    src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(model_policy_)
-                    for model_idx in model_list_:
-                        rsu_model_queue[des_rsu_][model_idx] = 1
-            task_num = len(self.sub_task_list)
-            action_value = int(action_value)
-            rsu_id_1 = action_value % (self.rsu_num + 1)
-            rsu_id_2 = (action_value // (self.rsu_num + 1)) % (self.rsu_num + 1)
-            rsu_id_3 = (action_value // ((self.rsu_num + 1) ** 2)) % (self.rsu_num + 1)
-            rsu_id_list = [rsu_id_1, rsu_id_2, rsu_id_3]
-            rsu_id_set = set(rsu_id_list)
-            rsu_id = int(action_value / ((self.rsu_num + 1)**3 * task_num))
-            task_id = action_value % task_num
-            task = self.sub_task_list[task_id]
-            request_id = task['job_id']
-            sub_task_id = task["sub_model_idx"]
-            sub_task_key = "{}-{}".format(request_id, sub_task_id)
-            task_download_model = task["model_structure"]
-            for i in range(len(model_util.Sub_Model_Structure_Size)):
-                if rsu_model_queue[rsu_id][i] == 1:
-                    task_download_model.remove(i)
-            model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key][0]
-            src_rsu, des_rsu, _ = self.get_download_model_rsu_info(model_policy)
-            change_before = rsu_to_rsu_model_structure_list_sub[sub_task_key]
-            if des_rsu == rsu_id:
-                return 2, rsu_to_rsu_model_structure_list_sub
-            if len(task_download_model) == 0:  # 如果本地已有全部模型则不需要下载model
-                task_download_info = self.get_download_model_rsu(task["rsu_id"], rsu_id, [])
-                rsu_to_rsu_model_structure_list_sub[sub_task_key] = []
-                rsu_to_rsu_model_structure_list_sub[sub_task_key].append(task_download_info)
-            else:  # 得出model应该从哪个rsu下载
-                task_download_model = task["model_structure"]
-                download_rsu_model = {i: [] for i in rsu_id_set}
-                model_select = []
-                change_after = []
-                for model_id in task_download_model:
-                    for rsu_id_ in rsu_id_set:
-                        if len(model_select) == len(task_download_model):
-                            continue
-                        if rsu_model_queue[rsu_id_][model_id] == 1:
-                            model_select.append(model_id)
-                            download_rsu_model[rsu_id_].append(model_id)
-                if len(model_select) != len(task_download_model):  # 所选择的rsu不包含task需要的全部model
-                    return 1, rsu_to_rsu_model_structure_list_sub  # ??
-                else:
-                    for download_rsu_model_key in download_rsu_model.keys():
-                        task_download_info = self.get_download_model_rsu(download_rsu_model_key, rsu_id,
-                                                                         download_rsu_model[download_rsu_model_key])
-                        change_after.append(task_download_info)
-                    rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
-            for rsu_idx in range(self.rsu_num):
-                self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
-                self.RSUs[rsu_idx].sub_task_list = []
-            if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=False):
-                return 0, rsu_to_rsu_model_structure_list_sub
-            # rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_before
-            return 1, rsu_to_rsu_model_structure_list_sub
-        # ------------------------------------------------------------------------------
-        #                任务部署模型
-        # ------------------------------------------------------------------------------
-        task_model_state = self.rsu_num
-        task_model_action = (self.rsu_num + 1)**3 * self.rsu_num * len(self.sub_task_list)
-        task_model = DQN.DQN(task_model_state, task_model_action)
-        REWARDS = []
-        LOSS = []
-        OPT_RESULT = []
-        best_optimal = -10000
-        train_base = 3.0
-        train_bais = 30.0
-        for epoch in tqdm(range(500), desc="dqn_task_"):
-            rsu_to_rsu_structure = {}
-            for rsu_idx in range(self.rsu_num):
-                self.RSUs[rsu_idx].clear_added_model()
-                self.RSUs[rsu_idx].task_list = []
-                self.RSUs[rsu_idx].sub_task_list = []
-            self.allocate_sub_task_initial()
-            self.allocate_task_for_rsu()
-            _, rsu_to_rsu_model_structure_list, observation = self.cal_objective_value(rsu_to_rsu_structure,
-                                                                                       is_Shared=False,
-                                                                                       is_Initial=True, is_dqn=True)
-            if -max(observation) > best_optimal:
-                best_optimal = -max(observation)
-            rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
-            for _ in range(500):
-                action_value = task_model.choose_action(observation)
-                flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value,
-                                                                               rsu_to_rsu_model_structure_list_sub)
-                if flag == 2:
-                    continue
-                observation_ = get_observation_task(rsu_to_rsu_model_structure_list_sub)
-                if flag == 1:
-                    reward = -100000
-                    task_model.store_transition(observation, action_value, reward, observation_)
-                    observation = observation_
-                    continue
-                reward = -max(observation_)
-                task_model.store_transition(observation, action_value, reward, observation_)
-                if -max(observation_) > best_optimal:
-                    best_optimal = -max(observation_)
-                observation = observation_
-            OPT_RESULT.append(best_optimal)
-            # print("objective_value: {}".format(best_optimal))
-            if epoch >= train_bais and epoch % train_base == 0:
-                # print("DRL is learning......")
-                loss = task_model.learn()
-                LOSS.append(float(loss))
-            if epoch % 50 == 0:
-                # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
-                pass
-        # plt.plot(LOSS)
-        # plt.title("loss curve......")
-        # plt.show()
-        # plt.plot(OPT_RESULT)
-        # plt.title("best_optimal")
-        # plt.ylabel("objective, minimal is better.")
-        # plt.show()
-        with open("loss.txt", "w+") as f:
-            f.write("reward: {}\n".format(REWARDS))
-            f.write("loss: {}\n".format(LOSS))
-        return best_optimal
 
     # ------------------------------------------------------------------------------
     #                Coalition algorithm
@@ -1107,3 +975,275 @@ class Algo:
                     self.RSUs[rsu_idx_task].sub_task_list.append(task)
                     rsu_to_rsu_model_structure_list[task_key] = download_model_rsu_info_list_before
         return -utility
+
+    # ------------------------------------------------------------------------------
+    #                TPA algorithm
+    # ------------------------------------------------------------------------------
+    def tpa(self, min_gap=0.1):
+        for rsu_idx in range(self.rsu_num):
+            self.RSUs[rsu_idx].sub_task_list = []
+            self.RSUs[rsu_idx].task_list = []
+            self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
+        self.allocate_task_for_rsu()
+        self.allocate_sub_task_for_rsu()
+        rsu_to_rsu_structure = {}  # xx-xx:xx-xx-[...]
+        rsu_to_rsu_model_structure_sub_task = {}
+        is_init = True
+        T_max, rsu_to_rsu_model_structure_list = self.cal_objective_value(rsu_to_rsu_structure, is_Initial=True)
+        T = T_max
+        T_min = 0
+        obj = T_max
+        while T_max - T_min >= min_gap:
+            throughput, objective_value, rsu_to_rsu_model_structure_sub_task = self.ita(T_max)
+            if throughput == self.get_total_sub_num():
+                T_max = T_max - (T_max - T_min) / 2
+                T = T_max
+                if obj > objective_value:
+                    obj = objective_value
+            else:
+                T_min = T_max
+                T_max = T_max + (T_max - T_min) / 2
+                T = T_max
+            is_init = False
+        return -obj
+
+    def ita(self, T_max):
+        def arrange_task() -> dict:
+            tasks = {}
+            for rsu_idx in range(self.rsu_num):
+                for task in self.RSUs[rsu_idx].sub_task_list:
+                    model_idx = task["model_idx"]
+                    sub_model = task["sub_model"]
+                    key = "{}-{}".format(model_idx, sub_model)
+                    if key not in tasks.keys():
+                        tasks[key] = [task]
+                    else:
+                        tasks[key].append(task)
+            return tasks
+
+        record_dict = {}
+        throughput = 0
+        uncompleted_tasks = self.sub_task_list.copy()
+        task_type_list = arrange_task()
+        rsu_visited = set(rsu_idx for rsu_idx in range(self.rsu_num))
+        for rsu_idx in range(self.rsu_num):
+            self.RSUs[rsu_idx].sub_task_list = []
+            self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
+        while len(uncompleted_tasks) != 0 and len(rsu_visited) != 0:
+            temp = 0
+            x_temp = None
+            for task_type_key in task_type_list.keys():
+                for rsu_idx in rsu_visited:
+                    complete_tasks, extra_task_size, extra_queue_latency, cpu_add_model = \
+                        self.add_tasks(T_max, task_type_list[task_type_key], rsu_idx)
+                    if len(complete_tasks) > temp:
+                        temp = len(complete_tasks)
+                        x_temp = [rsu_idx, complete_tasks, extra_task_size, extra_queue_latency, cpu_add_model]
+            if temp == 0:
+                break
+            rsu_idx = x_temp[0]
+            complete_tasks = x_temp[1]
+            extra_task_size = x_temp[2]
+            extra_queue_latency = x_temp[3]
+            cpu_add_model = x_temp[4]
+            self.RSUs[rsu_idx].add_model_structure(cpu_add_model)
+            self.RSUs[rsu_idx].task_size += extra_task_size
+            self.RSUs[rsu_idx].queue_latency += extra_queue_latency
+            throughput += len(complete_tasks)
+            for del_task in complete_tasks:
+                uncompleted_tasks.remove(del_task)
+                job_id = del_task["job_id"]
+                sub_id = del_task["sub_model_idx"]
+                del_task_key = "{}-{}".format(job_id, sub_id)
+                record_dict[del_task_key] = rsu_idx
+            if self.RSUs[rsu_idx].task_size + self.RSUs[rsu_idx].get_total_model_size() \
+                    >= self.RSUs[rsu_idx].storage_capacity:
+                rsu_visited.remove(rsu_idx)
+
+
+
+
+    def add_tasks(self, T_max, added_tasks, rsu_idx):
+        device_idx = self.RSUs[rsu_idx].device_idx
+        init_model_list = self.RSUs[rsu_idx].model_structure_list.copy()
+        init_queue_latency = self.RSUs[rsu_idx].queue_latency
+        init_task_size = self.RSUs[rsu_idx].task_size
+        complete_tasks = []
+        cpu_add_model = set()
+        for task in added_tasks:
+            job_id = task["job_id"]
+            model_idx = task["model_idx"]
+            sub_model_idx = task["sub_model_idx"]
+            complete_task_key = "{}-{}".format(job_id, sub_model_idx)
+            seq_num = task["seq_num"]
+            model = model_util.get_model(model_idx)
+            task_size = model.single_task_size
+            generated_id = task["rsu_id"]
+            latency_requirement = task["latency"]
+            added_model = self.RSUs[rsu_idx].has_model_structure(task["model_structure"])
+            download_size = model_util.get_model_sturctures_size(added_model)
+            if download_size + task_size + self.RSUs[rsu_idx].task_size + self.RSUs[rsu_idx].get_total_model_size() \
+                    < self.RSUs[rsu_idx].storage_capacity:
+                self.RSUs[rsu_idx].add_model_structure(added_model)
+                self.RSUs[rsu_idx].task_size += task_size
+                download_time = download_size / self.RSUs[rsu_idx].download_rate
+                if generated_id != rsu_idx:
+                    offload_time = model.single_task_size / self.RSUs[generated_id].rsu_rate
+                else:
+                    offload_time = 0
+                exec_time = self.RSUs[rsu_idx].latency_list[device_idx][model_idx][sub_model_idx][seq_num]
+                if offload_time + exec_time + download_time < latency_requirement and offload_time + exec_time \
+                        + download_time + self.RSUs[rsu_idx].queue_latency < T_max:
+                    self.RSUs[rsu_idx].queue_latency += offload_time + exec_time + download_time
+                    complete_tasks.append(task)
+                    for i in added_model:
+                        cpu_add_model.add(i)
+                else:
+                    self.RSUs[rsu_idx].remove_model_structure(added_model)
+            else:
+                continue
+        extra_task_size = self.RSUs[rsu_idx].task_size - init_task_size
+        extra_queue_latency = self.RSUs[rsu_idx].queue_latency - init_queue_latency
+        self.RSUs[rsu_idx].queue_latency = init_queue_latency
+        self.RSUs[rsu_idx].task_size = init_task_size
+        self.RSUs[rsu_idx].model_structure_list = init_model_list.copy()
+        return complete_tasks, extra_task_size, extra_queue_latency, cpu_add_model
+
+
+    # ------------------------------------------------------------------------------
+    #                DQN_no_shared algorithm(不使用)
+    # ------------------------------------------------------------------------------
+    def dqn_(self):
+        def get_observation_task(rsu_to_rsu_model_structure_list) -> list:
+            _, observations = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_dqn=True)
+            return observations
+
+        def employ_action_task(action_value, rsu_to_rsu_model_structure_list_sub):
+            # 更新策略
+            # 0: 完成修改
+            # 1: 不满足约束
+            # 2: 不需要修改
+            rsu_model_queue = self.generate_rsu_model_queue()
+            # 根据model迁移情况判断每个rsu的model存储情况
+            for key in rsu_to_rsu_model_structure_list_sub.keys():
+                for model_policy_ in rsu_to_rsu_model_structure_list_sub[key]:
+                    src_rsu_, des_rsu_, model_list_ = self.get_download_model_rsu_info(model_policy_)
+                    for model_idx in model_list_:
+                        rsu_model_queue[des_rsu_][model_idx] = 1
+            task_num = len(self.sub_task_list)
+            action_value = int(action_value)
+            rsu_id_1 = action_value % (self.rsu_num + 1)
+            rsu_id_2 = (action_value // (self.rsu_num + 1)) % (self.rsu_num + 1)
+            rsu_id_3 = (action_value // ((self.rsu_num + 1) ** 2)) % (self.rsu_num + 1)
+            rsu_id_list = [rsu_id_1, rsu_id_2, rsu_id_3]
+            rsu_id_set = set(rsu_id_list)
+            rsu_id = int(action_value / ((self.rsu_num + 1) ** 3 * task_num))
+            task_id = action_value % task_num
+            task = self.sub_task_list[task_id]
+            request_id = task['job_id']
+            sub_task_id = task["sub_model_idx"]
+            sub_task_key = "{}-{}".format(request_id, sub_task_id)
+            task_download_model = task["model_structure"]
+            for i in task_download_model:
+                if rsu_model_queue[rsu_id][i] == 1:
+                    task_download_model.remove(i)
+            model_policy = rsu_to_rsu_model_structure_list_sub[sub_task_key][0]
+            src_rsu, des_rsu, _ = self.get_download_model_rsu_info(model_policy)
+            change_before = rsu_to_rsu_model_structure_list_sub[sub_task_key]
+            if des_rsu == rsu_id:
+                return 2, rsu_to_rsu_model_structure_list_sub
+            if len(task_download_model) == 0:  # 如果本地已有全部模型则不需要下载model
+                task_download_info = self.get_download_model_rsu(task["rsu_id"], rsu_id, [])
+                rsu_to_rsu_model_structure_list_sub[sub_task_key] = []
+                rsu_to_rsu_model_structure_list_sub[sub_task_key].append(task_download_info)
+            else:  # 得出model应该从哪个rsu下载
+                download_rsu_model = {i: [] for i in rsu_id_set}
+                model_select = []
+                change_after = []
+                for rsu_id_ in rsu_id_set:
+                    for model_id in task["model_structure"]:
+                        if len(model_select) == len(task["model_structure"]):
+                            continue
+                        if rsu_model_queue[rsu_id_][model_id] == 1:
+                            model_select.append(model_id)
+                            download_rsu_model[rsu_id_].append(model_id)
+                if len(model_select) != len(task["model_structure"]):  # 所选择的rsu不包含task需要的全部model
+                    return 1, rsu_to_rsu_model_structure_list_sub  # ??
+                else:
+                    for download_rsu_model_key in download_rsu_model.keys():
+                        task_download_info = self.get_download_model_rsu(download_rsu_model_key, rsu_id,
+                                                                         download_rsu_model[download_rsu_model_key])
+                        change_after.append(task_download_info)
+                    rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_after
+            for rsu_idx in range(self.rsu_num):
+                self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
+                self.RSUs[rsu_idx].sub_task_list = []
+            if self.is_satisfied_constraint(rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=False):
+                return 0, rsu_to_rsu_model_structure_list_sub
+            # rsu_to_rsu_model_structure_list_sub[sub_task_key] = change_before
+            return 1, rsu_to_rsu_model_structure_list_sub
+
+        # ------------------------------------------------------------------------------
+        #                任务部署模型
+        # ------------------------------------------------------------------------------
+        task_model_state = self.rsu_num
+        task_model_action = (self.rsu_num + 1) ** 3 * self.rsu_num * len(self.sub_task_list)
+        task_model = DQN_.DQN(task_model_state, task_model_action)
+        REWARDS = []
+        LOSS = []
+        OPT_RESULT = []
+        best_optimal = -1000000
+        train_base = 3.0
+        train_bais = 30.0
+        for epoch in tqdm(range(500), desc="dqn_task_"):
+            rsu_to_rsu_structure = {}
+            for rsu_idx in range(self.rsu_num):
+                self.RSUs[rsu_idx].clear_added_model()
+                self.RSUs[rsu_idx].task_list = []
+                self.RSUs[rsu_idx].sub_task_list = []
+            self.allocate_sub_task_initial()
+            self.allocate_task_for_rsu()
+            _, rsu_to_rsu_model_structure_list, observation = self.cal_objective_value(rsu_to_rsu_structure,
+                                                                                       is_Shared=False,
+                                                                                       is_Initial=True, is_dqn=True)
+            if -max(observation) > best_optimal:
+                best_optimal = -max(observation)
+            rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
+            for _ in range(500):
+                action_value = task_model.choose_action(observation)
+                flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value,
+                                                                               rsu_to_rsu_model_structure_list_sub)
+                if flag == 2:
+                    continue
+                observation_ = get_observation_task(rsu_to_rsu_model_structure_list_sub)
+                if flag == 1:
+                    reward = -100000
+                    task_model.store_transition(observation, action_value, reward, observation_)
+                    break
+                    # observation = observation_
+                    # continue
+                reward = -max(observation_)
+                task_model.store_transition(observation, action_value, reward, observation_)
+                if -max(observation_) > best_optimal:
+                    best_optimal = -max(observation_)
+                observation = observation_
+            OPT_RESULT.append(best_optimal)
+            # print("objective_value: {}".format(best_optimal))
+            if epoch >= train_bais and epoch % train_base == 0:
+                # print("DRL is learning......")
+                loss = task_model.learn()
+                LOSS.append(float(loss))
+            if epoch % 50 == 0:
+                # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
+                pass
+        plt.plot(LOSS)
+        plt.title("loss curve......")
+        plt.show()
+        plt.plot(OPT_RESULT)
+        plt.title("best_optimal")
+        plt.ylabel("objective, minimal is better.")
+        plt.show()
+        with open("loss.txt", "w+") as f:
+            f.write("reward: {}\n".format(REWARDS))
+            f.write("loss: {}\n".format(LOSS))
+        return best_optimal

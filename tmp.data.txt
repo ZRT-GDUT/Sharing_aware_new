@@ -2058,3 +2058,83 @@ max_storage_change, max_storage: 750
 [-6.562018510181818, -0.8275501658164063]
 [-5.238136604745312, -1.838551810253646]
 [-13.202489112560466, -1.8449975176860796]
+[-0.192534994140625]
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -2.297427705653516, -5.058129898033203, -0.21210856806640624]
+[-18.65968448909091, -1.8934110494222656, -7.029167614942294, -0.21041734707031248]
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -2.2074612655807293, -5.058129898033203, -0.3996705]
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -2.1344160806998698, -5.058129898033203, -3.798228671127273]
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -1.948651532276953, -5.058129898033203, -0.41749338403320313]
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -1.8902692941305992, -5.058129898033203, -0.41749338403320313]
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+[-17.828525728363637, -0.6764730400664063, -0.3467563432519531, -0.15281777421875]
+[-18.65968448909091, -0.21041734707031248, -0.21041734707031248, -0.21041734707031248]
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+[-1.4611256151119791, -16.960002616745456, -0.2392991470703125, -0.21041734707031248]
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1
+
+Model_num_change, Model_num: 1

@@ -104,10 +104,9 @@ def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=10, max
         if model_download_rsu >= 0:
             model_download_time_list[model_structure_idx] = model_download_rsu
     Algo_new = Algo(RSUs, task_list, sub_task_list, model_download_time_list)
+    res.append(Algo_new.dqn())
     res.append(Algo_new.preference_coalition())
-    # res.append(Algo_new.dqn())
     res.append(Algo_new.MA())
-    # res.append(Algo_new.dqn())
     tmp_record(res)
     return res
 
@@ -156,7 +155,7 @@ def model_num_change():
         x_list.append(model_num)
         tmp_record("\nModel_num_change, Model_num: {}".format(model_num))
         res = []
-        for seed in range(base_seed, base_seed + second_loop_num, 1):
+        for seed in range(base_seed+2, base_seed + second_loop_num, 1):
             tmp = run_algo(model_ration=model_num, seed=seed)
             if len(res) == 0:
                 res = [0 for _ in tmp]
@@ -166,13 +165,14 @@ def model_num_change():
             res[i] = res[i] / second_loop_num
         results.append(res)
         Pre_coa.append(res[0])
-        DQN_res.append(res[1])
-        MA_res.append(res[2])
-        # DQN_res_.append(res[3])
+        DQN_res.append(res[2])
+        MA_res.append(res[3])
+        DQN_res_.append(res[1])
     record_file(x_list, results, "Model_num  ")
     plt.plot(x_list, MA_res, color='red', label='MA')
     plt.plot(x_list, DQN_res, color='blue', label='DQN')
     plt.plot(x_list, Pre_coa, color='yellow', label='COALITION')
+    plt.plot(x_list, DQN_res_, color='pink', label='DQN_no_shared')
     plt.xlabel('Model_num')
     plt.ylabel('Utility')
     plt.legend()
@@ -351,10 +351,10 @@ def time_slot_change():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    out_line()
-    # model_num_change()
+    # out_line()
+    model_num_change()
     # latency_requirement()
-    storage_change()
+    # storage_change()
     # rsu_rate_change()
     # download_change()
     # rsu_num_change()
