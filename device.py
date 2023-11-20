@@ -14,7 +14,7 @@ class RSU:
         if download_rate is None:
             self.download_rate = random.uniform(450, 550) / rsu_num  # Mbps
         else:
-            self.download_rate = (download_rate / rsu_num)
+            self.download_rate = (download_rate)
         if rsu_rate is None:
             self.rsu_rate = random.uniform(80, 120)  # Mbps
         else:
@@ -33,7 +33,7 @@ class RSU:
             self.has_cpu = True
         self.trans_cpu_gpu = 16 * 1024  # Gbps
         # storage
-        self.storage_capacity = random.uniform(300, max_storage)  # to do ...
+        self.storage_capacity = random.uniform(400, max_storage)  # to do ...
         # task
         self.task_list = []
         self.sub_task_list = []

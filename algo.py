@@ -994,7 +994,7 @@ class Algo:
         T_min = 0
         obj = T_max
         while T_max - T_min >= min_gap:
-            throughput, objective_value, rsu_to_rsu_model_structure_sub_task = self.ita(T_max)
+            objective_value, throughput, a = self.ita(T_max)
             if throughput == self.get_total_sub_num():
                 T_max = T_max - (T_max - T_min) / 2
                 T = T_max
@@ -1013,7 +1013,7 @@ class Algo:
             for rsu_idx in range(self.rsu_num):
                 for task in self.RSUs[rsu_idx].sub_task_list:
                     model_idx = task["model_idx"]
-                    sub_model = task["sub_model"]
+                    sub_model = task["sub_model_idx"]
                     key = "{}-{}".format(model_idx, sub_model)
                     if key not in tasks.keys():
                         tasks[key] = [task]
@@ -1026,6 +1026,7 @@ class Algo:
         uncompleted_tasks = self.sub_task_list.copy()
         task_type_list = arrange_task()
         rsu_visited = set(rsu_idx for rsu_idx in range(self.rsu_num))
+        rsu_to_rsu_dict = {}
         for rsu_idx in range(self.rsu_num):
             self.RSUs[rsu_idx].sub_task_list = []
             self.RSUs[rsu_idx].model_structure_list = self.RSUs[rsu_idx].initial_model_structure_list.copy()
@@ -1056,10 +1057,31 @@ class Algo:
                 sub_id = del_task["sub_model_idx"]
                 del_task_key = "{}-{}".format(job_id, sub_id)
                 record_dict[del_task_key] = rsu_idx
+            for key in task_type_list.keys():
+                tmp_visit = task_type_list[key].copy()
+                for task in tmp_visit:
+                    if task in complete_tasks:
+                        task_type_list[key].remove(task)
+                if len(task_type_list[key]) == 0:
+                    del key
             if self.RSUs[rsu_idx].task_size + self.RSUs[rsu_idx].get_total_model_size() \
                     >= self.RSUs[rsu_idx].storage_capacity:
                 rsu_visited.remove(rsu_idx)
-
+            if len(uncompleted_tasks) == 0:
+                break
+        for key in record_dict.keys():
+            exec_id = record_dict[key]
+            info = key.split("-")
+            job_id = int(info[0])
+            sub_model_idx = int(info[1])
+            task = self.task_list[job_id][sub_model_idx]
+            download_model = self.RSUs[exec_id].has_model_structure_initial(task["model_structure"])
+            download_info = self.get_download_model_rsu(self.rsu_num, exec_id, download_model)
+            if key not in rsu_to_rsu_dict.keys():
+                rsu_to_rsu_dict[key] = []
+                rsu_to_rsu_dict[key].append(download_info)
+        obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list=rsu_to_rsu_dict, is_Request=False)
+        return obj_value, throughput, rsu_to_rsu_dict
 
 
 
@@ -1091,7 +1113,7 @@ class Algo:
                     offload_time = model.single_task_size / self.RSUs[generated_id].rsu_rate
                 else:
                     offload_time = 0
-                exec_time = self.RSUs[rsu_idx].latency_list[device_idx][model_idx][sub_model_idx][seq_num]
+                exec_time = self.RSUs[rsu_idx].latency_list[model_idx][sub_model_idx][device_idx][seq_num]
                 if offload_time + exec_time + download_time < latency_requirement and offload_time + exec_time \
                         + download_time + self.RSUs[rsu_idx].queue_latency < T_max:
                     self.RSUs[rsu_idx].queue_latency += offload_time + exec_time + download_time
