@@ -27,7 +27,7 @@ class Net(nn.Module):
 
 
 class DQN:
-    def __init__(self, num_state, num_action, gamma=0.9, batch_size=128, q_network_iteration=100, lr=0.01, memory_capacity=2000, episilo=0.9):
+    def __init__(self, num_state, num_action, gamma=0.9, batch_size=256, q_network_iteration=100, lr=0.01, memory_capacity=2000, episilo=0.9):
         self.eval_net, self.target_net = Net(num_state, num_action), Net(num_state, num_action)
         self.batch_size = batch_size
         self.learn_step_counter = 0

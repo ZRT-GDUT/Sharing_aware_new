@@ -119,6 +119,7 @@ def rsu_num_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for rsu_num in range(10, 31, 5):
         x_list.append(rsu_num)
         tmp_record("\nrsu_num_change, rsu_num: {}".format(rsu_num))
@@ -128,9 +129,12 @@ def rsu_num_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
@@ -155,6 +159,7 @@ def model_num_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for model_num in range(1, 12, 2):
         x_list.append(model_num)
         tmp_record("\nModel_num_change, Model_num: {}".format(model_num))
@@ -164,9 +169,12 @@ def model_num_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
@@ -191,6 +199,7 @@ def download_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for download_rate in range(450, 551, 25):
         x_list.append(download_rate)
         tmp_record("\ndownload_change, download_rate: {}".format(download_rate))
@@ -200,9 +209,12 @@ def download_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
@@ -228,6 +240,7 @@ def latency_requirement():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for latency in range(10):
         max_latency = 0.5 + 0.05 * latency
         x_list.append(max_latency)
@@ -238,9 +251,12 @@ def latency_requirement():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
@@ -264,6 +280,7 @@ def rsu_rate_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for rsu_rate in range(80, 121, 10):
         x_list.append(rsu_rate)
         tmp_record("\nrsu_rate_change, rsu_rate: {}".format(rsu_rate))
@@ -273,9 +290,13 @@ def rsu_rate_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
+        results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
         MA_res.append(res[1])
@@ -299,6 +320,7 @@ def storage_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     for max_storage in range(10):
         max_storage = 400 + 50 * max_storage
         x_list.append(max_storage)
@@ -309,9 +331,11 @@ def storage_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
-                res[i] += tmp[i]
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         # DQN_res.append(res[3])
@@ -336,6 +360,7 @@ def time_slot_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
+    counter = [0, 0, 0]
     time_slot = 610
     for task_num in time_slot_list:
         x_list.append(time_slot)
@@ -346,9 +371,11 @@ def time_slot_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
-                res[i] += tmp[i]
+                if tmp[i] < -1000:
+                    counter[i] += 1
+                    continue
         for i in range(len(res)):
-            res[i] = res[i] / second_loop_num
+            res[i] = res[i] / (second_loop_num-counter[i])
         time_slot += 10
         results.append(res)
         Pre_coa.append(res[0])
@@ -370,11 +397,11 @@ def time_slot_change():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # out_line()
-    # model_num_change()
-    # latency_requirement()
-    storage_change()
+    out_line()
     rsu_rate_change()
+    model_num_change()
+    latency_requirement()
+    storage_change()
     download_change()
     rsu_num_change()
     time_slot_change()

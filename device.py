@@ -14,7 +14,7 @@ class RSU:
         if download_rate is None:
             self.download_rate = random.uniform(450, 550) / rsu_num  # Mbps
         else:
-            self.download_rate = (download_rate)
+            self.download_rate = download_rate / rsu_num
         if rsu_rate is None:
             self.rsu_rate = random.uniform(80, 120)  # Mbps
         else:
