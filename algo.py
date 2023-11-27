@@ -670,10 +670,10 @@ class Algo:
         train_base = 2.0
         train_bais = 30.0
         LOSS_model = []
-        for epoch in tqdm(range(800), desc="dqn"):
+        for epoch in tqdm(range(700), desc="dqn"):
             rsu_model_queue = self.generate_rsu_model_queue()
             observation = get_observation(rsu_model_queue)
-            for _ in range(500):
+            for _ in range(300):
                 action_value = DRL_model.choose_action(observation)
                 # if action_value == num_state - 1:
                 #     # print("DRL think this state is the optimal, thus break..")
@@ -697,7 +697,7 @@ class Algo:
         # ------------------------------------------------------------------------------
         #                任务部署模型
         # ------------------------------------------------------------------------------
-        train_base = 2.0
+        train_base = 3.0
         task_model_state = self.rsu_num
         task_model_action = self.get_total_sub_num() * self.rsu_num
         task_model = DQN.DQN(task_model_state, task_model_action)
@@ -705,7 +705,7 @@ class Algo:
         LOSS = []
         OPT_RESULT = []
         best_optimal = -10000
-        for epoch in tqdm(range(1500), desc="dqn_task"):
+        for epoch in tqdm(range(500), desc="dqn_task"):
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()

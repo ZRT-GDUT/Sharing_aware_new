@@ -10,12 +10,12 @@ class Net(nn.Module):
     """docstring for Net"""
     def __init__(self, num_states, num_action):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(num_states, 512)
-        self.fc1.weight.data.normal_(0,0.1)
-        self.fc2 = nn.Linear(512, 512)
+        self.fc1 = nn.Linear(num_states, 128)
+        self.fc1.weight.data.normal_(0, 0.1)
+        self.fc2 = nn.Linear(128, 128)
         self.fc2.weight.data.normal_(0, 0.1)
-        self.out = nn.Linear(512, num_action)
-        self.out.weight.data.normal_(0,0.1)
+        self.out = nn.Linear(128, num_action)
+        self.out.weight.data.normal_(0, 0.1)
 
     def forward(self,x):
         x = self.fc1(x)
