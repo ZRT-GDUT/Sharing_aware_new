@@ -689,8 +689,11 @@ class Algo:
                 # print("DRL is learning......")
                 loss = DRL_model.learn()
                 LOSS_model.append(float(loss))
-
-
+        # with open("loss.txt", "w+") as f:
+        #     f.write("loss: {}\n".format(LOSS_model))
+        # plt.plot(LOSS_model)
+        # plt.title("loss curve......")
+        # plt.show()
         # ------------------------------------------------------------------------------
         #                任务部署模型
         # ------------------------------------------------------------------------------

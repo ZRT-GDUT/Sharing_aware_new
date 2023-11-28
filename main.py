@@ -121,6 +121,7 @@ def rsu_num_change():
     TPA_res = []
     counter = [0, 0, 0, 0]
     for rsu_num in range(10, 31, 5):
+        counter = [0, 0, 0, 0]
         x_list.append(rsu_num)
         tmp_record("\nrsu_num_change, rsu_num: {}".format(rsu_num))
         res = []
@@ -164,6 +165,7 @@ def model_num_change():
         x_list.append(model_num)
         tmp_record("\nModel_num_change, Model_num: {}".format(model_num))
         res = []
+        counter = [0, 0, 0, 0]
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(model_ration=model_num, seed=seed)
             if len(res) == 0:
@@ -204,6 +206,7 @@ def download_change():
         x_list.append(download_rate)
         tmp_record("\ndownload_change, download_rate: {}".format(download_rate))
         res = []
+        counter = [0, 0, 0, 0]
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(download_rate=download_rate, seed=seed)
             if len(res) == 0:
@@ -246,6 +249,7 @@ def latency_requirement():
         x_list.append(max_latency)
         tmp_record("\nlatency_requirement_change, latency_requirement: {}".format(max_latency))
         res = []
+        counter = [0, 0, 0, 0]
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(latency_requiredment=max_latency, seed=seed)
             if len(res) == 0:
@@ -281,10 +285,11 @@ def rsu_rate_change():
     Pre_coa = []
     TPA_res = []
     counter = [0, 0, 0, 0]
-    for rsu_rate in range(90, 121, 10):  # 80-90
+    for rsu_rate in range(80, 121, 10):
         x_list.append(rsu_rate)
         tmp_record("\nrsu_rate_change, rsu_rate: {}".format(rsu_rate))
         res = []
+        counter = [0, 0, 0, 0]
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(rsu_rate=rsu_rate, seed=seed)
             if len(res) == 0:
@@ -320,12 +325,12 @@ def storage_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0, 0]
     for max_storage in range(10):
         max_storage = 400 + 50 * max_storage
         x_list.append(max_storage)
         tmp_record("\nmax_storage_change, max_storage: {}".format(max_storage))
         res = []
+        counter = [0, 0, 0, 0]
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(max_storage=max_storage, seed=seed)
             if len(res) == 0:
@@ -334,6 +339,7 @@ def storage_change():
                 if tmp[i] < -1000:
                     counter[i] += 1
                     continue
+                res[i] += tmp[i]
         for i in range(len(res)):
             res[i] = res[i] / (second_loop_num-counter[i])
         results.append(res)
@@ -363,6 +369,7 @@ def time_slot_change():
     counter = [0, 0, 0, 0]
     time_slot = 610
     for task_num in time_slot_list:
+        counter = [0, 0, 0, 0]
         x_list.append(time_slot)
         tmp_record("\ntime_slot_change, time_slot: {}".format(time_slot))
         res = []
@@ -398,12 +405,12 @@ def time_slot_change():
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     out_line()
-    rsu_rate_change()
-    model_num_change()
-    latency_requirement()
+    # rsu_rate_change()
+    # model_num_change()
+    # latency_requirement()
     storage_change()
-    download_change()
     rsu_num_change()
+    download_change()
     time_slot_change()
 
 
