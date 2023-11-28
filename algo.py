@@ -689,11 +689,8 @@ class Algo:
                 # print("DRL is learning......")
                 loss = DRL_model.learn()
                 LOSS_model.append(float(loss))
-        with open("loss.txt", "w+") as f:
-            f.write("loss: {}\n".format(LOSS_model))
-        plt.plot(LOSS_model)
-        plt.title("loss curve......")
-        plt.show()
+
+
         # ------------------------------------------------------------------------------
         #                任务部署模型
         # ------------------------------------------------------------------------------
@@ -747,16 +744,16 @@ class Algo:
             if epoch % 50 == 0:
                 # print("\nepoch: {}, objective_value: {}".format(epoch, best_optimal))
                 pass
-        plt.plot(LOSS)
-        plt.title("loss curve......")
-        plt.show()
-        plt.plot(OPT_RESULT)
-        plt.title("best_optimal")
-        plt.ylabel("objective, minimal is better.")
-        plt.show()
-        with open("loss.txt", "w+") as f:
-            f.write("reward: {}\n".format(REWARDS))
-            f.write("loss: {}\n".format(LOSS))
+        # plt.plot(LOSS)
+        # plt.title("loss curve......")
+        # plt.show()
+        # plt.plot(OPT_RESULT)
+        # plt.title("best_optimal")
+        # plt.ylabel("objective, minimal is better.")
+        # plt.show()
+        # with open("loss.txt", "w+") as f:
+        #     f.write("reward: {}\n".format(REWARDS))
+        #     f.write("loss: {}\n".format(LOSS))
         return best_optimal
 
     def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=True):

@@ -119,7 +119,7 @@ def rsu_num_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     for rsu_num in range(10, 31, 5):
         x_list.append(rsu_num)
         tmp_record("\nrsu_num_change, rsu_num: {}".format(rsu_num))
@@ -159,7 +159,7 @@ def model_num_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     for model_num in range(1, 12, 2):
         x_list.append(model_num)
         tmp_record("\nModel_num_change, Model_num: {}".format(model_num))
@@ -199,7 +199,7 @@ def download_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     for download_rate in range(450, 551, 25):
         x_list.append(download_rate)
         tmp_record("\ndownload_change, download_rate: {}".format(download_rate))
@@ -240,7 +240,7 @@ def latency_requirement():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     for latency in range(10):
         max_latency = 0.5 + 0.05 * latency
         x_list.append(max_latency)
@@ -280,8 +280,8 @@ def rsu_rate_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
-    for rsu_rate in range(80, 121, 10):
+    counter = [0, 0, 0, 0]
+    for rsu_rate in range(90, 121, 10):  # 80-90
         x_list.append(rsu_rate)
         tmp_record("\nrsu_rate_change, rsu_rate: {}".format(rsu_rate))
         res = []
@@ -320,7 +320,7 @@ def storage_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     for max_storage in range(10):
         max_storage = 400 + 50 * max_storage
         x_list.append(max_storage)
@@ -360,7 +360,7 @@ def time_slot_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0]
+    counter = [0, 0, 0, 0]
     time_slot = 610
     for task_num in time_slot_list:
         x_list.append(time_slot)
