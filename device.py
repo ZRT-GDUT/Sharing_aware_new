@@ -9,7 +9,7 @@ import model_util
 
 
 class RSU:
-    def __init__(self, device_ration=0.5, max_storage=1200, download_rate=None, rsu_rate=None, rsu_num=5):
+    def __init__(self, device_ration=0.5, max_storage=850, download_rate=None, rsu_rate=None, rsu_num=20):
         # transmission rate
         if download_rate is None:
             self.download_rate = random.uniform(450, 550) / rsu_num  # Mbps
@@ -33,7 +33,7 @@ class RSU:
             self.has_cpu = True
         self.trans_cpu_gpu = 16 * 1024  # Gbps
         # storage
-        self.storage_capacity = random.uniform(400, max_storage)  # to do ...
+        self.storage_capacity = max_storage  # to do ...
         # task
         self.task_list = []
         self.sub_task_list = []

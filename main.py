@@ -13,6 +13,7 @@ random.seed(1023)
 
 second_loop_num = 10
 time_slot_list = [5, 7, 2, 4, 4, 2, 4, 2, 6, 7]
+time_slot_list_con = [12, 14, 18, 22]
 base_seed = 10086
 
 
@@ -64,7 +65,8 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
             for task in RSUs[rand_rsu_id].task_list:
                 for sub_task in task:
                     for model_structure_idx in sub_task["model_structure"]:
-                        if model_structure_idx not in rand_model_structure_list and model_structure_idx not in RSUs[rand_rsu_id].model_structure_list:
+                        if model_structure_idx not in rand_model_structure_list and model_structure_idx not in RSUs[
+                            rand_rsu_id].model_structure_list:
                             task_model_list.add(model_structure_idx)
             task_model_structure_size = model_util.get_model_sturctures_size(task_model_list)
             rand_model_structure_size = model_util.get_model_sturctures_size(rand_model_structure_list)
@@ -80,12 +82,13 @@ def init_model_deploy(model_ration, rsu_num, RSUs):
         RSUs[rsu_idx].initial_model_structure_list = RSUs[rsu_idx].model_structure_list.copy()
 
 
-def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=10, max_storage=1700, model_ration=9,
-             latency_requiredment=3, seed=666, task_num=7):
+def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=20, max_storage=850, model_ration=7,
+             latency_requiredment=1.2, seed=666, task_num=7):
     random.seed(seed)
     res = []
     RSUs = generate_rsu(rsu_num, device_ration, download_rate, rsu_rate, max_storage)
-    task_list, sub_task_list = google_data_util.process_task(rsu_num, max_latency=latency_requiredment, filename=task_num)
+    task_list, sub_task_list = google_data_util.process_task(rsu_num, max_latency=latency_requiredment,
+                                                             filename=task_num)
     for task in task_list:
         rsu_id = task[0]["rsu_id"]
         RSUs[rsu_id].add_task(task)
@@ -111,7 +114,6 @@ def run_algo(device_ration=0.5, download_rate=550, rsu_rate=120, rsu_num=10, max
     tmp_record(res)
     return res
 
-
 def rsu_num_change():
     results = []
     x_list = []
@@ -135,7 +137,7 @@ def rsu_num_change():
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -152,6 +154,7 @@ def rsu_num_change():
     # plt.show()
     # plt.savefig("pic/{}.png".format("rsu_num"))
     # plt.clf()
+
 
 def model_num_change():
     results = []
@@ -176,7 +179,7 @@ def model_num_change():
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -194,6 +197,7 @@ def model_num_change():
     # plt.savefig("pic/{}.png".format("Model_num"))
     # plt.clf()
 
+
 def download_change():
     results = []
     x_list = []
@@ -201,7 +205,6 @@ def download_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0, 0]
     for download_rate in range(450, 551, 25):
         x_list.append(download_rate)
         tmp_record("\ndownload_change, download_rate: {}".format(download_rate))
@@ -212,12 +215,12 @@ def download_change():
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
-                if tmp[i] < -1000:
+                if tmp[i] > 1000:
                     counter[i] += 1
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -260,7 +263,7 @@ def latency_requirement():
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -276,6 +279,7 @@ def latency_requirement():
     # plt.legend()
     # plt.show()
     # plt.savefig("pic/{}.png".format("Latency_requiredment"))
+
 
 def rsu_rate_change():
     results = []
@@ -300,7 +304,7 @@ def rsu_rate_change():
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -317,6 +321,7 @@ def rsu_rate_change():
     # plt.show()
     # plt.savefig("pic/{}.png".format("rsu_rate"))
     # plt.clf()
+
 
 def storage_change():
     results = []
@@ -341,7 +346,7 @@ def storage_change():
                     continue
                 res[i] += tmp[i]
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         results.append(res)
         Pre_coa.append(res[0])
         DQN_res.append(res[3])
@@ -359,6 +364,7 @@ def storage_change():
     # plt.savefig("pic/{}.png".format("max_storage"))
     # plt.clf()
 
+
 def time_slot_change():
     results = []
     x_list = []
@@ -366,23 +372,22 @@ def time_slot_change():
     DQN_res = []
     Pre_coa = []
     TPA_res = []
-    counter = [0, 0, 0, 0]
-    time_slot = 610
-    for task_num in time_slot_list:
+    time_slot = 620
+    for task_num in time_slot_list_con:
         counter = [0, 0, 0, 0]
         x_list.append(time_slot)
-        tmp_record("\ntime_slot_change, time_slot: {}".format(time_slot))
+        tmp_record("\ntime_slot_change_con, time_slot: {}".format(time_slot))
         res = []
         for seed in range(base_seed, base_seed + second_loop_num, 1):
             tmp = run_algo(task_num=task_num, seed=seed)
             if len(res) == 0:
                 res = [0 for _ in tmp]
             for i in range(len(res)):
-                if tmp[i] < -1000:
+                if tmp[i] > 1000:
                     counter[i] += 1
                     continue
         for i in range(len(res)):
-            res[i] = res[i] / (second_loop_num-counter[i])
+            res[i] = res[i] / (second_loop_num - counter[i])
         time_slot += 10
         results.append(res)
         Pre_coa.append(res[0])
@@ -404,15 +409,33 @@ def time_slot_change():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    out_line()
+    # out_line()
     # rsu_rate_change()
     # model_num_change()
     # latency_requirement()
-    storage_change()
-    rsu_num_change()
-    download_change()
+    # storage_change()
+    # rsu_num_change()
+    # download_change()
     time_slot_change()
-
-
+#     counter = [0, 0, 0, 0]
+#     res = [[26.11989273349091, 1.9818109579244556, 999999.7200532, 1.8096027154453125],
+# [20.009945092509092, 0.42421918178320317, 0.19743483478238638, 1.4103353543786459],
+# [23.862391216363637, 5.986139840981818, 11.239176173127273, 1.4052724073083334],
+# [22.53217856472727, 7.677642296760476, 999999.3831396, 1.9190469117832032],
+# [21.223939672363635, 0.4508520658164063, 0.2968619763794034, 0.5514327607807292],
+# [8.539609702909091, 0.23317278403320313, 0.2524276470703125, 0.20159242121875],
+# [17.4507792848, 0.40838537589973956, 0.40833168403320313, 1.6891557218665363],
+# [27.78585183349091, 10.595981973127273, 19.162007376036364, 1.5062443218665365],
+# [2.735624953818182, 1.953743237851385, 4.070974807636364, 0.42408348178320315],
+# [29.638648775272728, 2.0523137833391334, 999999.4039221, 1.8396148755082031]]
+#     res_ = [0, 0, 0, 0]
+#     for i in range(len(res[0])):
+#         for j in range(len(res)):
+#             if res[j][i] < 1000:
+#                 counter[i] += 1
+#                 res_[i] += res[j][i]
+#     for i in range(len(res_)):
+#         res_[i] = res_[i] / counter[i]
+#     print(res_)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

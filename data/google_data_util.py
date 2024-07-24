@@ -99,8 +99,8 @@ def process_task(rsu_num, filename=7, max_sub_task_num=10, max_latency=50) -> Li
 
 
 def outfiles():
-    for start in range(600, 710, 10):
-        time_end = start + 10
+    for start in range(600, 610, 1):
+        time_end = start + 1
         out_event(time_start=start, time_end=time_end, out_filename="{}.csv".format(start))
 
 

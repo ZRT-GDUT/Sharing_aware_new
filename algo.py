@@ -10,9 +10,10 @@ import DQN
 import DQN_
 import device
 import model_util
+from data import google_data_util
 import numpy as np
 
-
+time_slot_list = [5, 7, 2, 4, 4]
 class Algo:
     def __init__(self, RSUs: List[device.RSU], task_list, sub_task_list, model_download_time_list):
         self.RSUs = RSUs
@@ -39,20 +40,13 @@ class Algo:
         print("T_max:", T_max)
         T_min = 0
         obj = T_max
-        while T_max - T_min >= min_gap:
-            throughput, objective_value, rsu_to_rsu_model_structure_sub_task = \
-                self.ma(rsu_to_rsu_model_structure_sub_task, rsu_to_rsu_model_structure_list, T_max, is_init)
-            if throughput == self.get_total_sub_num():
-                T_max = T_max - (T_max - T_min) / 2
-                T = T_max
-                if obj > objective_value:
-                    obj = objective_value
-            else:
-                T_min = T_max
-                T_max = T_max + (T_max - T_min) / 2
-                T = T_max
-            is_init = False
-        return -obj
+        throughput, objective_value, rsu_to_rsu_model_structure_sub_task, changed_num_list = \
+            self.ma(rsu_to_rsu_model_structure_sub_task, rsu_to_rsu_model_structure_list, is_init)
+        with open("ma_changed_num.txt", "a+") as f:
+            f.write("------------------------\n")
+            f.write("{}\n".format(changed_num_list))
+            f.write("------------------------\n\n")
+        return objective_value
 
     def generate_rsu_request_queue(self):
         rsu_request_queue = [[] for _ in range(self.rsu_num)]
@@ -68,7 +62,7 @@ class Algo:
                 rsu_request_queue[rsu_idx].append(task)
         return rsu_request_queue
 
-    def generate_new_position_request(self, task, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
+    def generate_new_position_request(self, task, rsu_to_rsu_model_structure_list, is_Shared=True):
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Request=True)
         task_copy = task.copy()
         rsu_idx_task_initial = task_copy[0]['position']
@@ -154,7 +148,7 @@ class Algo:
                 rsu_to_rsu_model_structure_list[job_id] = []
                 rsu_to_rsu_model_structure_list[job_id].append(download_model_rsu_info)
             obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Initial=False, is_Request=True)
-            if obj_value_new < obj_value and obj_value_new < T_max:
+            if obj_value_new < obj_value:
                 self.RSUs[rsu_idx].add_model_structure(not_added_model_structure)
                 removed_model_list = set()
                 for removed_model_off in download_model_rsu_info_list_before:
@@ -181,7 +175,7 @@ class Algo:
                 rsu_to_rsu_model_structure_list[job_id] = download_model_rsu_info_list_before
         return rsu_to_rsu_model_structure_list
 
-    def generate_new_position_sub_task(self, task, rsu_to_rsu_model_structure_list, T_max, is_Shared=True):
+    def generate_new_position_sub_task(self, task, rsu_to_rsu_model_structure_list, is_Shared=True):
         obj_value = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Request=False)
         rsu_idx_task_initial = task["position"]
         rsu_idx_task = task["position"]
@@ -263,7 +257,7 @@ class Algo:
                 rsu_to_rsu_model_structure_list[sub_task_key].append(download_model_rsu_info)
             obj_value_new = self.cal_objective_value(rsu_to_rsu_model_structure_list, is_Initial=False,
                                                      is_Request=False)
-            if obj_value_new < obj_value and obj_value_new < T_max:
+            if obj_value_new < obj_value:
                 self.RSUs[rsu_idx].add_model_structure(task["model_structure"])
                 removed_model_list = set()
                 for removed_model_off in download_model_rsu_info_list_before:
@@ -299,7 +293,7 @@ class Algo:
         my_list = list(eval(string))
         return int(info[0]), int(info[1]), my_list
 
-    def ma(self, rsu_to_rsu_structure_sub_task, rsu_to_rsu_model_structure_list, T_max, is_init=True):
+    def ma(self, rsu_to_rsu_structure_sub_task, rsu_to_rsu_model_structure_list, is_init=True):
         changed_sub_task = True
         changed_request = True
         rsu_to_rsu_model_structure_sub_task = {}
@@ -309,23 +303,31 @@ class Algo:
                 for task in self.task_list:
                     old_position = task[0]["position"]
                     rsu_to_rsu_model_structure_list = \
-                        self.generate_new_position_request(task, rsu_to_rsu_model_structure_list, T_max)
+                        self.generate_new_position_request(task, rsu_to_rsu_model_structure_list)
                     if old_position != task[0]['position']:
                         changed_request = True
             rsu_to_rsu_structure_sub_task = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
             self.allocate_sub_task_for_rsu()
+        changed_num_list = []
+        # changed_num_list_ = []
         while changed_sub_task:
             changed_sub_task = False
+            changed_num_set = set()
+            i = 0
             for task_ in self.task_list:  # 遍历子任务
                 for sub_task in task_:
                     old_position_sub = sub_task['position']
                     rsu_to_rsu_model_structure_list_sub_task = self.generate_new_position_sub_task(
-                        sub_task, rsu_to_rsu_structure_sub_task, T_max)
+                        sub_task, rsu_to_rsu_structure_sub_task)
                     if sub_task['position'] != old_position_sub:
+                        # i += 1
+                        changed_num_set.add(sub_task['task_id'])
                         changed_sub_task = True
+            # changed_num_list_.append(i)
+            changed_num_list.append(len(changed_num_set))
         obj = self.cal_objective_value(rsu_to_rsu_model_structure_list_sub_task)
         throughput = self.get_total_sub_num()
-        return throughput, obj, rsu_to_rsu_structure_sub_task
+        return throughput, obj, rsu_to_rsu_structure_sub_task, changed_num_list
 
     def trans_request_to_sub_task(self, rsu_to_rsu_model_structure_list):
         rsu_to_rsu_model_structure_list_sub_task = {}
@@ -670,7 +672,7 @@ class Algo:
         train_base = 2.0
         train_bais = 30.0
         LOSS_model = []
-        for epoch in tqdm(range(700), desc="dqn"):
+        for epoch in tqdm(range(300), desc="dqn"):
             rsu_model_queue = self.generate_rsu_model_queue()
             observation = get_observation(rsu_model_queue)
             for _ in range(300):
@@ -705,7 +707,7 @@ class Algo:
         LOSS = []
         OPT_RESULT = []
         best_optimal = -10000
-        for epoch in tqdm(range(500), desc="dqn_task"):
+        for epoch in tqdm(range(300), desc="dqn_task"):
             rsu_to_rsu_structure = {}
             for rsu_idx in range(self.rsu_num):
                 self.RSUs[rsu_idx].clear_added_model()
@@ -719,7 +721,7 @@ class Algo:
                 best_optimal = -max(observation)
             rsu_to_rsu_model_structure_list_sub = self.trans_request_to_sub_task(rsu_to_rsu_model_structure_list)
             total_reward = 0
-            for _ in range(500):
+            for _ in range(300):
                 action_value = task_model.choose_action(observation)
                 flag, rsu_to_rsu_model_structure_list_sub = employ_action_task(action_value,
                                                                                rsu_to_rsu_model_structure_list_sub,
@@ -757,7 +759,7 @@ class Algo:
         # with open("loss.txt", "w+") as f:
         #     f.write("reward: {}\n".format(REWARDS))
         #     f.write("loss: {}\n".format(LOSS))
-        return best_optimal
+        return -best_optimal
 
     def is_satisfied_constraint(self, rsu_to_rsu_model_structure_list_sub, rsu_id, sub_task_key, is_Shared=True):
         for task_id in rsu_to_rsu_model_structure_list_sub.keys():
@@ -974,7 +976,7 @@ class Algo:
                     self.RSUs[rsu_idx].sub_task_list.remove(task)
                     self.RSUs[rsu_idx_task].sub_task_list.append(task)
                     rsu_to_rsu_model_structure_list[task_key] = download_model_rsu_info_list_before
-        return -utility
+        return utility
 
     # ------------------------------------------------------------------------------
     #                TPA algorithm
@@ -1005,7 +1007,7 @@ class Algo:
                 T_max = T_max + (T_max - T_min) / 2
                 T = T_max
             is_init = False
-        return -obj
+        return obj
 
     def ita(self, T_max):
         def arrange_task() -> dict:
